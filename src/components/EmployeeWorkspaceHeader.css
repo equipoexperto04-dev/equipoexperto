@@ -1,0 +1,150 @@
+.employee-workspace-header {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    max-width: 720px;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.employee-workspace-header--hub {
+    max-width: none;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1.25rem;
+}
+
+.employee-workspace-header--hub .employee-workspace-main {
+    align-items: center;
+}
+
+.employee-workspace-header--hub .employee-workspace-title {
+    font-size: 1.5rem;
+    letter-spacing: -0.03em;
+}
+
+.employee-workspace-header--hub .employee-workspace-sub {
+    font-size: 0.875rem;
+    margin-top: 0.2rem;
+}
+
+.employee-workspace-header--hub .employee-workspace-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+}
+
+.employee-workspace-header--hub .employee-workspace-status {
+    margin-left: auto;
+    text-transform: capitalize;
+    letter-spacing: 0.02em;
+}
+
+.employee-workspace-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    cursor: pointer;
+    width: fit-content;
+    min-height: 44px;
+}
+
+.employee-workspace-back:hover {
+    color: var(--accent-color);
+}
+
+.employee-workspace-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.employee-workspace-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1px solid var(--border-color);
+}
+
+.employee-workspace-copy {
+    flex: 1;
+    min-width: 200px;
+}
+
+.employee-workspace-kicker {
+    margin: 0 0 0.2rem;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent-color);
+}
+
+.employee-workspace-title {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+.employee-workspace-sub {
+    margin: 0.35rem 0 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    max-width: 42rem;
+}
+
+.employee-workspace-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.employee-workspace-status.is-on {
+    background: rgba(34, 197, 94, 0.12);
+    color: #16a34a;
+    border-color: rgba(34, 197, 94, 0.25);
+}
+
+.employee-workspace-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.7;
+}
+
+.employee-workspace-status.is-on .employee-workspace-status-dot {
+    opacity: 1;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+}
+
+.employee-workspace-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}

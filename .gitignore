@@ -1,0 +1,61 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Environment variables - never commit
+.env
+.env.local
+.env.production
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Tooling
+.claude/
+.qoder/
+
+Mont client id and secret.json
+MongoDB.txt
+Cpanel config.txt
+
+# Project specific ignored files & folders
+Equipo Experto Feedbacks (1).pdf
+Equipo_Experto_Business_Automation_Platform.docx
+secondary account.json
+secondary_account.json
+server_run.err
+server_run.log
+tasks.txt
+temp_migrate_seo.js
+Wrong things v1.docx
+temp_migrate_seo.mjs
+sample_leads.csv
+Better UX/
+.cursor/
+.firecrawl/
+.remember/
+.windsurf/
+phase2 website/
+
+# Vercel Mailer
+vercel-mailer/node_modules
+vercel-mailer/.vercel
+.vercel

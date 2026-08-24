@@ -1,0 +1,135 @@
+/* Shared "coming soon" shell for Your Google Listing pages
+   (Optimization, Content & Reviews, Review Booster) */
+
+.gbp-page-header {
+    margin-bottom: 1.5rem;
+}
+
+.gbp-page-header h1 {
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--text-primary);
+    margin: 0 0 0.35rem;
+}
+
+.gbp-page-header p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    max-width: 640px;
+}
+
+.gbp-coming-soon-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 2.25rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.75rem;
+}
+
+.gbp-coming-soon-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--accent-color) 12%, var(--bg-secondary));
+    color: var(--accent-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.25rem;
+}
+
+.gbp-coming-soon-badge {
+    display: inline-flex;
+    align-items: center;
+    background: color-mix(in srgb, var(--accent-color) 12%, var(--bg-secondary));
+    color: var(--accent-color);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-full);
+    margin-bottom: 0.25rem;
+}
+
+.gbp-coming-soon-card h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.gbp-coming-soon-card > p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    max-width: 480px;
+    line-height: 1.6;
+}
+
+.gbp-feature-list {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    text-align: left;
+    width: 100%;
+    max-width: 420px;
+}
+
+.gbp-feature-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.gbp-feature-list svg {
+    color: var(--accent-color);
+    flex-shrink: 0;
+    margin-top: 0.15rem;
+}
+
+.gbp-existing-note {
+    margin-top: 0.5rem;
+    width: 100%;
+    max-width: 420px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.25rem;
+    text-align: left;
+}
+
+.gbp-existing-note p {
+    margin: 0 0 0.6rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.gbp-existing-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--accent-color);
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-decoration: none;
+}
+
+.gbp-existing-link:hover,
+.gbp-existing-link:focus-visible {
+    text-decoration: underline;
+}

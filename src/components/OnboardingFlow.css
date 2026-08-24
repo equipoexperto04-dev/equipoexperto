@@ -1,0 +1,325 @@
+.onboard-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(8px);
+}
+
+.onboard-card {
+    width: 100%;
+    max-width: 480px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    padding: 1.75rem 1.5rem 1.5rem;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+}
+
+.onboard-card--wide {
+    max-width: 420px;
+}
+
+.onboard-progress {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--bg-secondary);
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+.onboard-progress-fill {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #8b5cf6, #3b82f6);
+    transition: width 0.35s ease;
+}
+
+.onboard-step-label {
+    margin: 0 0 1.25rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.onboard-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.onboard-panel--center {
+    align-items: center;
+    text-align: center;
+}
+
+.onboard-title {
+    margin: 0;
+    font-size: 1.45rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+.onboard-subtitle {
+    margin: 0 0 0.5rem;
+    font-size: 0.92rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+}
+
+.onboard-field-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
+
+.onboard-input {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 600;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.onboard-input:focus {
+    border-color: var(--accent-color);
+}
+
+.onboard-btn-primary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    width: 100%;
+    margin-top: 0.5rem;
+    padding: 0.9rem 1.25rem;
+    border: none;
+    border-radius: 14px;
+    background: var(--accent-color);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.15s;
+}
+
+.onboard-btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.onboard-btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.onboard-btn-ghost {
+    width: 100%;
+    padding: 0.65rem;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.onboard-btn-ghost:hover:not(:disabled) {
+    color: var(--text-primary);
+}
+
+.onboard-goals {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.onboard-goal {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    width: 100%;
+    padding: 0.9rem 1rem;
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.onboard-goal:hover {
+    border-color: color-mix(in srgb, var(--accent-color) 40%, transparent);
+}
+
+.onboard-goal--selected {
+    border-color: var(--accent-color);
+    background: color-mix(in srgb, var(--accent-color) 8%, var(--bg-secondary));
+}
+
+.onboard-goal-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.onboard-goal-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.onboard-goal-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.onboard-goal-tag {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    line-height: 1.35;
+}
+
+.onboard-goal-arrow {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+}
+
+.onboard-link-back {
+    align-self: flex-start;
+    margin-top: 0.25rem;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.onboard-panel--center .onboard-link-back {
+    align-self: center;
+}
+
+.onboard-wa-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.25rem;
+}
+
+.onboard-wa-spinner {
+    color: var(--accent-color);
+}
+
+.onboard-panel--wa {
+    width: 100%;
+}
+
+.onboard-wa-icon--success {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+}
+
+.onboard-wa-icon--error {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+}
+
+.onboard-wa-error {
+    color: var(--danger, #ef4444);
+}
+
+.onboard-qr-wrap {
+    padding: 0.75rem;
+    margin: 0.5rem 0 0.75rem;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.onboard-qr-img {
+    display: block;
+    width: 200px;
+    height: 200px;
+    object-fit: contain;
+}
+
+.onboard-qr-placeholder {
+    width: 200px;
+    height: 200px;
+    margin: 0.5rem auto 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 20px;
+    border: 1px dashed var(--border-color);
+    background: var(--bg-secondary);
+}
+
+.onboard-wa-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    margin: 0 0 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #25d366;
+}
+
+.onboard-wa-pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #25d366;
+    animation: onboard-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes onboard-pulse {
+    0%,
+    100% {
+        opacity: 0.35;
+        transform: scale(0.9);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+}
+
+@media (max-width: 480px) {
+    .onboard-card {
+        padding: 1.25rem 1rem 1rem;
+        border-radius: 20px;
+    }
+
+    .onboard-title {
+        font-size: 1.25rem;
+    }
+}

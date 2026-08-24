@@ -1,0 +1,89 @@
+.wiz-page--loading {
+    min-height: 50vh;
+}
+
+.wiz-skel-line {
+    border-radius: 8px;
+    background: linear-gradient(
+        90deg,
+        var(--bg-secondary) 0%,
+        var(--border-color) 45%,
+        var(--bg-secondary) 90%
+    );
+    background-size: 220% 100%;
+    animation: wiz-skel-shimmer 1.15s ease-in-out infinite;
+}
+
+:root.dark .wiz-skel-line {
+    background: linear-gradient(
+        90deg,
+        rgba(30, 41, 59, 0.9) 0%,
+        rgba(51, 65, 85, 0.95) 45%,
+        rgba(30, 41, 59, 0.9) 90%
+    );
+    background-size: 220% 100%;
+}
+
+@keyframes wiz-skel-shimmer {
+    0% { background-position: 120% 0; }
+    100% { background-position: -120% 0; }
+}
+
+.wiz-skel-back {
+    width: 100px;
+    height: 36px;
+}
+
+.wiz-skel-badge {
+    width: 140px;
+    height: 32px;
+    margin-left: auto;
+}
+
+.wiz-skel-stepper {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    padding: 0.5rem 0 1rem;
+}
+
+.wiz-skel-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.wiz-skel-instruction {
+    height: 1rem;
+    width: min(420px, 95%);
+    margin-bottom: 0.5rem;
+}
+
+.wiz-skel-instruction-short {
+    height: 0.85rem;
+    width: min(320px, 80%);
+    margin-bottom: 1.25rem;
+}
+
+.wiz-skel-hint {
+    text-align: center;
+    margin-top: 1.5rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent-color);
+    opacity: 0.9;
+}
+
+.wiz-source-card--skel {
+    pointer-events: none;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    padding: 1.25rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+}

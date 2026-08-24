@@ -1,0 +1,225 @@
+.fu-tpl-picker {
+    position: relative;
+    align-self: flex-end;
+}
+
+.fu-tpl-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border: 1.5px solid var(--border-color);
+    border-radius: var(--radius-md, 0.75rem);
+    cursor: pointer;
+    max-width: 100%;
+}
+
+.fu-tpl-trigger:hover {
+    border-color: var(--accent-color, #8b5cf6);
+}
+
+.fu-tpl-trigger-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+}
+
+.fu-tpl-chevron {
+    flex-shrink: 0;
+    opacity: 0.6;
+    transition: transform 0.15s;
+}
+
+.fu-tpl-chevron.is-open {
+    transform: rotate(180deg);
+}
+
+.fu-tpl-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 40;
+    min-width: 280px;
+    max-width: min(360px, 92vw);
+    max-height:  min(420px, 60vh);
+    overflow-y: auto;
+    padding: 0.5rem;
+    background: var(--bg-primary);
+    border: 1.5px solid var(--border-color);
+    border-radius: var(--radius-md, 0.75rem);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
+.fu-tpl-menu-title {
+    margin: 0 0 0.35rem;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+}
+
+.fu-tpl-option-wrap {
+    display: flex;
+    align-items: stretch;
+    gap: 0.15rem;
+}
+
+.fu-tpl-option-wrap:hover .fu-tpl-option-delete {
+    opacity: 1;
+}
+
+.fu-tpl-option {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    padding: 0.65rem 0.75rem;
+    border: none;
+    border-radius: var(--radius-sm, 0.5rem);
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    min-width: 0;
+}
+
+.fu-tpl-option:hover {
+    background: var(--bg-secondary);
+}
+
+.fu-tpl-option.is-selected {
+    background: rgba(139, 92, 246, 0.12);
+}
+
+.fu-tpl-option-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.fu-tpl-option-hint {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    margin-top: 0.15rem;
+    line-height: 1.35;
+}
+
+.fu-tpl-option-delete {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem;
+    border: none;
+    border-radius: var(--radius-sm, 0.5rem);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.fu-tpl-option-delete:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.fu-tpl-divider {
+    height: 1px;
+    margin: 0.35rem 0.25rem;
+    background: var(--border-color);
+}
+
+.fu-tpl-create-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border: none;
+    border-radius: var(--radius-sm, 0.5rem);
+    background: transparent;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.fu-tpl-create-row:hover {
+    background: var(--bg-secondary);
+}
+
+.fu-tpl-create-form {
+    padding: 0.5rem 0.25rem 0.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.fu-tpl-create-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.fu-tpl-create-input,
+.fu-tpl-create-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.5rem 0.65rem;
+    font-size: 0.8125rem;
+    border-radius: var(--radius-sm, 0.5rem);
+    border: 1.5px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: inherit;
+}
+
+.fu-tpl-create-textarea {
+    resize: vertical;
+    min-height: 5rem;
+    line-height: 1.45;
+}
+
+.fu-tpl-create-hint {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.fu-tpl-create-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 0.25rem;
+}
+
+.fu-tpl-btn-cancel,
+.fu-tpl-btn-save {
+    padding: 0.4rem 0.85rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm, 0.5rem);
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.fu-tpl-btn-cancel {
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-primary);
+}
+
+.fu-tpl-btn-save {
+    border: none;
+    color: #fff;
+}

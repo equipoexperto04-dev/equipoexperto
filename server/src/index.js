@@ -1,0 +1,612 @@
+import express from 'express';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
+import csrf from 'csurf';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+import authRoutes from './routes/authRoutes.js';
+import integrationRoutes from './routes/integrationRoutes.js';
+import integrationOAuthRoutes from './routes/integrationOAuthRoutes.js';
+import configRoutes from './routes/configRoutes.js';
+import publicRoutes from './routes/publicRoutes.js';
+import activityLogsRoutes from './routes/activityLogsRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
+import leadsRoutes from './routes/leadsRoutes.js';
+import marketplaceRoutes from './routes/marketplaceRoutes.js';
+import statsRoutes from './routes/statsRoutes.js';
+import feedbackRoutes from './routes/feedbackRoutes.js';
+import whatsappRoutes from './routes/whatsappRoutes.js';
+import translationRoutes from './routes/translationRoutes.js';
+import reportRoutes from './routes/reportRoutes.js';
+import smtpRoutes from './routes/smtpRoutes.js';
+import apolloRoutes from './routes/apolloRoutes.js';
+import stripeRoutes from './routes/stripeRoutes.js';
+import stripeWebhookRoutes from './routes/stripeWebhookRoutes.js';
+import authenticate from './middleware/authenticate.js';
+import requireActiveSubscription from './middleware/requireActiveSubscription.js';
+import startFollowupCron from './cron/followupCron.js';
+import startWeeklyReportCron from './cron/reportCron.js';
+import { restoreActiveSessions } from './services/whatsappService.js';
+import pool from './db/pool.js';
+import { insertErrorEvent } from './services/errorLogService.js';
+import { getTokenFromRequest } from './utils/cookieHelpers.js';
+import { getCorsWhitelist } from './utils/corsWhitelist.js';
+
+import { loadProjectEnv } from './utils/loadEnv.js';
+import { isContactFormMailConfigured } from './services/contactFormMailService.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const loadedEnvPath = loadProjectEnv();
+if (loadedEnvPath) {
+    console.log(`[env] Loaded ${loadedEnvPath}`);
+}
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Warn on startup if critical env vars are missing
+['JWT_SECRET', 'DATABASE_URL'].forEach(key => {
+    if (!process.env[key]) console.error(`âŒ Missing env var: ${key} â€” server will not function correctly`);
+});
+if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('âŒ Missing EMAIL_USER / EMAIL_PASS â€” contact form and OTP emails will not send');
+}
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// MIDDLEWARE
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+// Trust Render's proxy for headers (needed for rate-limiting and reliable CORS)
+app.set('trust proxy', 1);
+
+// CORS â€” set CORS_ORIGINS (comma-separated) in production; see server/src/utils/corsWhitelist.js
+const whitelist = getCorsWhitelist();
+
+// Handle preflight OPTIONS requests BEFORE any other middleware
+app.options('*', (req, res) => {
+    const origin = req.headers.origin;
+    if (!origin || whitelist.indexOf(origin) !== -1) {
+        res.header('Access-Control-Allow-Origin', origin || '*');
+        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, Accept, X-Requested-With, X-CSRF-Token');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Expose-Headers', 'X-New-Access-Token');
+        res.header('Access-Control-Max-Age', '86400'); // 24 hours
+    }
+    res.status(204).end();
+});
+
+// Enable COOP for Google login - must be set before CORS
+app.use((req, res, next) => {
+    // Allow popups for OAuth flows but maintain security
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+    // Also needed for some OAuth scenarios
+    res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+    next();
+});
+
+// CORS Middleware - Simplified and more reliable
+app.use(cors({
+    origin: function(origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        if (whitelist.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With', 'X-CSRF-Token'],
+    exposedHeaders: ['X-New-Access-Token'],
+    optionsSuccessStatus: 204 // Proper status code for OPTIONS
+}));
+
+// Stripe webhook â€” raw body required for signature verification (must be before express.json)
+app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhookRoutes);
+
+// Lead import needs a larger body (contact lists can be hundreds of KB)
+app.use('/api/leads/import', express.json({ limit: '10mb' }));
+
+// All other endpoints: keep tight limit to prevent abuse
+app.use(express.json({ limit: '50kb' }));
+
+// Remove fingerprinting header
+app.disable('x-powered-by');
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// RATE LIMITING
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+// General API rate limit - 100 requests per 15 minutes per IP
+const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many requests. Please try again later.' },
+    skip: (req) => req.method === 'OPTIONS', // Skip preflight requests
+});
+
+// Stricter limit on auth endpoints: 5 attempts per 15 minutes
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many login attempts. Please wait 15 minutes.' },
+});
+
+app.use(generalLimiter);
+
+// Cookie parser for CSRF and JWT cookies
+app.use(cookieParser(process.env.COOKIE_SECRET || 'default-secret-change-in-production'));
+
+// CSRF protection - skip for public webhooks
+const csrfProtection = csrf({
+    cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+});
+
+// Skip CSRF for JWT Bearer APIs (SPA is on another origin — strict CSRF cookies do not apply)
+app.use((req, res, next) => {
+    if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+        return next();
+    }
+    if (getTokenFromRequest(req)) {
+        return next();
+    }
+    const skipPrefixes = [
+        '/api/',
+        '/auth',
+    ];
+    if (skipPrefixes.some((prefix) => req.path.startsWith(prefix))) {
+        return next();
+    }
+    csrfProtection(req, res, next);
+});
+
+// CSRF token endpoint (must run csrf middleware on this route — global skip does not attach req.csrfToken)
+app.get('/csrf-token', csrfProtection, (req, res) => {
+    res.json({ csrfToken: req.csrfToken() });
+});
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ROUTES
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+// Health check
+app.get('/', (req, res) => {
+    res.json({
+        success: true,
+        service: 'Equipo Experto API',
+        version: '1.0.0',
+        status: 'running',
+        timestamp: new Date().toISOString(),
+    });
+});
+
+/** Public readiness — helps verify Render env + DB after account migration */
+app.get('/api/health', async (_req, res) => {
+    const checks = {
+        jwtSecret: Boolean(process.env.JWT_SECRET?.trim()),
+        databaseUrl: Boolean(process.env.DATABASE_URL?.trim()),
+        usersTable: false,
+        dbError: null,
+    };
+    try {
+        await pool.query('SELECT 1 FROM users LIMIT 1');
+        checks.usersTable = true;
+    } catch (err) {
+        checks.dbError = err.code === '42P01' ? 'users_table_missing' : err.message;
+    }
+    const ok = checks.jwtSecret && checks.databaseUrl && checks.usersTable;
+    const allowDetails =
+        process.env.NODE_ENV !== 'production' ||
+        (process.env.HEALTHCHECK_SECRET &&
+            _req.headers['x-healthcheck-secret'] === process.env.HEALTHCHECK_SECRET);
+    return res.status(ok ? 200 : 503).json(
+        allowDetails
+            ? { success: ok, checks }
+            : {
+                  success: ok,
+                  status: ok ? 'ok' : 'degraded',
+                  timestamp: new Date().toISOString(),
+              }
+    );
+});
+// Auth endpoints
+app.use(
+    [
+        '/auth/login',
+        '/auth/register',
+        '/auth/request-otp',
+        '/auth/forgot-password',
+        '/auth/google',
+        '/auth/firebase',
+    ],
+    authLimiter
+);
+app.use('/auth', authRoutes);
+
+app.use('/api/stripe', stripeRoutes);
+
+// OAuth redirects (public — must run before dashboard auth; cross-site callbacks omit session cookies)
+app.use('/api/integrations', integrationOAuthRoutes);
+
+// Public i18n overrides (SPA loads before / with login; POST /update stays authenticated on the route)
+app.use('/api/translations', translationRoutes);
+
+// Public funnels (review / feedback / lead capture) — MUST be before dashboardApi.
+// dashboardApi applies authenticate to every /api request; mounting it first caused 401 on /api/r/*.
+app.use('/api', publicRoutes);
+
+// Protected dashboard APIs — require Stripe subscription (admins exempt)
+const dashboardApi = express.Router();
+dashboardApi.use(authenticate, requireActiveSubscription);
+dashboardApi.use('/reports', reportRoutes);
+dashboardApi.use('/integrations', integrationRoutes);
+dashboardApi.use('/config', configRoutes);
+dashboardApi.use('/activity-logs', activityLogsRoutes);
+dashboardApi.use('/admin', adminRoutes);
+dashboardApi.use('/leads', leadsRoutes);
+dashboardApi.use('/marketplace', marketplaceRoutes);
+dashboardApi.use('/stats', statsRoutes);
+dashboardApi.use('/feedback', feedbackRoutes);
+dashboardApi.use('/whatsapp', whatsappRoutes);
+dashboardApi.use('/smtp', smtpRoutes);
+dashboardApi.use('/apollo', apolloRoutes);
+dashboardApi.use('/apify', apolloRoutes);
+app.use('/api', dashboardApi);
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// 404 handler
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+
+        message: `Route ${req.method} ${req.originalUrl} not found.`,
+    });
+});
+// Global error handler
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+app.use(async (err, req, res, next) => {
+    console.error('[UnhandledError]', err);
+
+    // CSRF failures on JWT APIs or bot scans are not production incidents — do not flood the error panel
+    if (err?.code === 'EBADCSRFTOKEN') {
+        return res.status(403).json({
+            success: false,
+            message: 'Invalid or missing CSRF token.',
+            code: 'EBADCSRFTOKEN',
+        });
+    }
+
+    try {
+        await insertErrorEvent({
+            level: 'error',
+            code: err?.code || null,
+            message: err?.message || 'Unhandled server error',
+            stack: err?.stack?.slice(0, 20000) || null,
+            context: { url: req.originalUrl, headers: { 'user-agent': req.headers['user-agent'] } },
+            userId: req?.user?.id || null,
+            route: req.originalUrl,
+            method: req.method,
+            ip: req.ip,
+        });
+    } catch (e) {
+        console.error('[ErrorPersist]', e.message);
+    }
+
+    // Ensure CORS headers are attached on errors too
+    const origin = req.headers.origin;
+    if (whitelist.includes(origin) || !origin) {
+        res.header('Access-Control-Allow-Origin', origin || '*');
+    }
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, Accept, X-Requested-With');
+    res.header('Access-Control-Allow-Credentials', 'true');
+
+    res.status(err.status || 500).json({
+        success: false,
+        message: err.message || 'An unexpected server error occurred.',
+        debug: process.env.NODE_ENV === 'production' ? undefined : err.stack
+});
+});
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Startup Migrations: Ensure schema and indices are optimized
+// Run each migration independently â€” a single failure must never block the rest
+const safeQuery = async (label, sql) => {
+    try {
+        await pool.query(sql);
+    } catch (err) {
+        console.error(`âš ï¸  Migration skipped [${label}]: ${err.message}`);
+    }
+};
+
+const runMigrations = async () => {
+    try {
+        // Fresh Render Postgres has no schema — create core auth tables before ALTERs
+        await safeQuery('core.pgcrypto', `CREATE EXTENSION IF NOT EXISTS pgcrypto`);
+        await safeQuery('core.users_table', `
+            CREATE TABLE IF NOT EXISTS users (
+                id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name            VARCHAR(255) NOT NULL,
+                email           VARCHAR(255) UNIQUE NOT NULL,
+                password_hash   VARCHAR(255) NOT NULL DEFAULT '',
+                company_name    VARCHAR(255) DEFAULT '',
+                phone           VARCHAR(50),
+                plan            VARCHAR(50) DEFAULT 'free',
+                role            VARCHAR(50) DEFAULT 'owner',
+                status          VARCHAR(50) DEFAULT 'active',
+                trial_ends_at   TIMESTAMPTZ,
+                weekly_reports_enabled BOOLEAN DEFAULT TRUE,
+                stripe_customer_id VARCHAR(255),
+                stripe_subscription_id VARCHAR(255),
+                created_at      TIMESTAMPTZ DEFAULT NOW(),
+                updated_at      TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+        await safeQuery('core.users_email_idx', `CREATE INDEX IF NOT EXISTS idx_users_email ON users (email)`);
+        await safeQuery('users.trial_ends_at', `ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ`);
+        await safeQuery('users.weekly_reports_enabled', `ALTER TABLE users ADD COLUMN IF NOT EXISTS weekly_reports_enabled BOOLEAN DEFAULT TRUE`);
+        await safeQuery('users.stripe_customer_id', `ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255)`);
+        await safeQuery('users.stripe_subscription_id', `ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255)`);
+
+        await safeQuery('error_events_table', `
+            CREATE TABLE IF NOT EXISTS error_events (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                level VARCHAR(10) DEFAULT 'error',
+                code VARCHAR(100),
+                message TEXT,
+                stack TEXT,
+                context JSONB DEFAULT '{}',
+                user_id UUID,
+                route TEXT,
+                method VARCHAR(10),
+                ip VARCHAR(100),
+                resolved BOOLEAN DEFAULT FALSE,
+                resolved_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+        await safeQuery('idx_error_events_created', `CREATE INDEX IF NOT EXISTS idx_error_events_created ON error_events (created_at DESC)`);
+
+        await safeQuery('users.phone',                  `ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50)`);
+        await safeQuery('idx_leads_user_id',            `CREATE INDEX IF NOT EXISTS idx_leads_user_id ON leads(user_id)`);
+        await safeQuery('idx_activity_logs_user_id',    `CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id)`);
+        await safeQuery('idx_feedback_user_id',         `CREATE INDEX IF NOT EXISTS idx_feedback_user_id ON feedback(user_id)`);
+        await safeQuery('idx_integrations_user_id',     `CREATE INDEX IF NOT EXISTS idx_integrations_user_id ON integrations(user_id)`);
+        await safeQuery('whatsapp_sessions_table', `
+            CREATE TABLE IF NOT EXISTS whatsapp_sessions (
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+                PRIMARY KEY (user_id, key)
+            )
+        `);
+        await safeQuery('idx_whatsapp_sessions_user_id', `CREATE INDEX IF NOT EXISTS idx_whatsapp_sessions_user_id ON whatsapp_sessions(user_id)`);
+        await safeQuery('translations_table',           `CREATE TABLE IF NOT EXISTS translations (id SERIAL PRIMARY KEY, key_name VARCHAR(255) UNIQUE NOT NULL, english_text TEXT, spanish_text TEXT, updated_at TIMESTAMP DEFAULT NOW())`);
+        await safeQuery('review_funnel.lead_sources',    `ALTER TABLE review_funnel_settings ADD COLUMN IF NOT EXISTS lead_sources JSONB DEFAULT '["qr"]'`);
+        await safeQuery('review_funnel.capture_sources', `ALTER TABLE review_funnel_settings ADD COLUMN IF NOT EXISTS capture_sources JSONB DEFAULT '["qr"]'`);
+        await safeQuery('review_funnel.capture_embed_type', `ALTER TABLE review_funnel_settings ADD COLUMN IF NOT EXISTS capture_embed_type VARCHAR(20) DEFAULT 'inline'`);
+        
+        // Create marketplace_leads table + contact info columns (Apify enrichment)
+        await safeQuery('marketplace_leads_table', `
+            CREATE TABLE IF NOT EXISTS marketplace_leads (
+                id SERIAL PRIMARY KEY,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                external_id VARCHAR(255) NOT NULL,
+                source VARCHAR(100) NOT NULL,
+                category VARCHAR(50),
+                title TEXT,
+                price DECIMAL(15,2),
+                currency VARCHAR(10) DEFAULT 'EUR',
+                location VARCHAR(500),
+                url TEXT,
+                image_url TEXT,
+                description TEXT,
+                fetched_at TIMESTAMP DEFAULT NOW(),
+                created_at TIMESTAMP DEFAULT NOW(),
+                size DECIMAL(10,2),
+                rooms INTEGER,
+                floor VARCHAR(50),
+                agency VARCHAR(255),
+                brand VARCHAR(100),
+                model VARCHAR(100),
+                year INTEGER,
+                mileage DECIMAL(10,2),
+                fuel VARCHAR(50),
+                company VARCHAR(255),
+                salary VARCHAR(100),
+                contract_type VARCHAR(50),
+                is_remote BOOLEAN DEFAULT FALSE,
+                raw_data JSONB,
+                UNIQUE(user_id, external_id)
+            )
+        `);
+        await safeQuery('idx_marketplace_leads_user_id',  `CREATE INDEX IF NOT EXISTS idx_marketplace_leads_user_id ON marketplace_leads(user_id)`);
+        await safeQuery('idx_marketplace_leads_source',   `CREATE INDEX IF NOT EXISTS idx_marketplace_leads_source ON marketplace_leads(source)`);
+        await safeQuery('idx_marketplace_leads_category', `CREATE INDEX IF NOT EXISTS idx_marketplace_leads_category ON marketplace_leads(category)`);
+        await safeQuery('marketplace_leads.seller_name',  `ALTER TABLE marketplace_leads ADD COLUMN IF NOT EXISTS seller_name VARCHAR(255)`);
+        await safeQuery('marketplace_leads.seller_phone', `ALTER TABLE marketplace_leads ADD COLUMN IF NOT EXISTS seller_phone VARCHAR(100)`);
+        await safeQuery('marketplace_leads.seller_email', `ALTER TABLE marketplace_leads ADD COLUMN IF NOT EXISTS seller_email VARCHAR(255)`);
+        await safeQuery('marketplace_leads.contact_url',  `ALTER TABLE marketplace_leads ADD COLUMN IF NOT EXISTS contact_url TEXT`);
+        await safeQuery('marketplace_usage_table', `
+            CREATE TABLE IF NOT EXISTS marketplace_usage (
+                id SERIAL PRIMARY KEY,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                period VARCHAR(7) NOT NULL,
+                leads_fetched INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(user_id, period)
+            )
+        `);
+        await safeQuery('users.trial_ends_at', `ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ`);
+        await safeQuery('marketplace_usage.search_runs', `ALTER TABLE marketplace_usage ADD COLUMN IF NOT EXISTS search_runs INTEGER NOT NULL DEFAULT 0`);
+        await safeQuery('marketplace_search_jobs_table', `
+            CREATE TABLE IF NOT EXISTS marketplace_search_jobs (
+                id UUID PRIMARY KEY,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                niche VARCHAR(80) NOT NULL,
+                query TEXT,
+                location TEXT NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'queued',
+                requested_limit INTEGER NOT NULL DEFAULT 0,
+                fetched_count INTEGER NOT NULL DEFAULT 0,
+                saved_count INTEGER NOT NULL DEFAULT 0,
+                error_message TEXT,
+                result_summary JSONB DEFAULT '{}'::jsonb,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                started_at TIMESTAMPTZ,
+                completed_at TIMESTAMPTZ,
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+        await safeQuery('idx_marketplace_usage_user_period', `CREATE INDEX IF NOT EXISTS idx_marketplace_usage_user_period ON marketplace_usage(user_id, period)`);
+        await safeQuery('idx_marketplace_jobs_user_status', `CREATE INDEX IF NOT EXISTS idx_marketplace_jobs_user_status ON marketplace_search_jobs(user_id, status)`);
+        await safeQuery('idx_marketplace_jobs_user_created', `CREATE INDEX IF NOT EXISTS idx_marketplace_jobs_user_created ON marketplace_search_jobs(user_id, created_at DESC)`);
+
+        await safeQuery('leads.scrub_placeholder_emails', `
+            UPDATE leads
+            SET email = ''
+            WHERE trim(email) ILIKE '%@placeholder.com'
+               OR lower(trim(email)) = 'pending@apify.local'
+        `);
+
+        // leads table expansion
+        await safeQuery('leads.followup_step_index', `ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup_step_index INTEGER DEFAULT 0`);
+        await safeQuery('leads.last_followup_at',    `ALTER TABLE leads ADD COLUMN IF NOT EXISTS last_followup_at TIMESTAMPTZ`);
+        await safeQuery('leads.lead_group',          `ALTER TABLE leads ADD COLUMN IF NOT EXISTS lead_group VARCHAR(100) DEFAULT 'General'`);
+        await safeQuery('leads.lead_group_index',    `CREATE INDEX IF NOT EXISTS idx_leads_user_group ON leads(user_id, lead_group)`);
+
+        // lead_folders — user_id must be UUID (matches users.id). Drop legacy table if wrong type.
+        await safeQuery('lead_folders.drop_wrong_user_id', `
+            DO $$ BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'public'
+                      AND table_name = 'lead_folders'
+                      AND column_name = 'user_id'
+                      AND data_type IN ('integer', 'bigint')
+                ) THEN
+                    DROP TABLE lead_folders;
+                END IF;
+            END $$;
+        `);
+        await safeQuery('lead_folders.table', `
+            CREATE TABLE IF NOT EXISTS lead_folders (
+                id SERIAL PRIMARY KEY,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                name VARCHAR(100) NOT NULL,
+                followup_message TEXT,
+                source_hint VARCHAR(80),
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(user_id, name)
+            )
+        `);
+        await safeQuery('lead_folders.user_index', `CREATE INDEX IF NOT EXISTS idx_lead_folders_user ON lead_folders(user_id)`);
+
+        // lead_followup_settings column expansion
+        await safeQuery('lead_followup.whatsapp_enabled',    `ALTER TABLE lead_followup_settings ADD COLUMN IF NOT EXISTS whatsapp_enabled BOOLEAN DEFAULT TRUE`);
+        await safeQuery('lead_followup.email_enabled',       `ALTER TABLE lead_followup_settings ADD COLUMN IF NOT EXISTS email_enabled BOOLEAN DEFAULT TRUE`);
+        await safeQuery('lead_followup.followup_sequence',   `ALTER TABLE lead_followup_settings ADD COLUMN IF NOT EXISTS followup_sequence JSONB DEFAULT '[]'`);
+        await safeQuery('lead_followup.reminder_active',     `ALTER TABLE lead_followup_settings ADD COLUMN IF NOT EXISTS reminder_active BOOLEAN DEFAULT FALSE`);
+        await safeQuery('lead_followup.reminder_delay_value',`ALTER TABLE lead_followup_settings ADD COLUMN IF NOT EXISTS reminder_delay_value INTEGER DEFAULT 48`);
+        await safeQuery('lead_followup.reminder_delay_unit', `ALTER TABLE lead_followup_settings ADD COLUMN IF NOT EXISTS reminder_delay_unit VARCHAR(20) DEFAULT 'hours'`);
+        await safeQuery('lead_followup.reminder_message',    `ALTER TABLE lead_followup_settings ADD COLUMN IF NOT EXISTS reminder_message TEXT DEFAULT ''`);
+        await safeQuery('lead_followup.updated_at',          `ALTER TABLE lead_followup_settings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`);
+        await safeQuery('lead_followup.lead_source',          `ALTER TABLE lead_followup_settings ADD COLUMN IF NOT EXISTS lead_source VARCHAR(50) DEFAULT 'excel'`);
+        await safeQuery('lead_followup.lead_sources',         `ALTER TABLE lead_followup_settings ADD COLUMN IF NOT EXISTS lead_sources JSONB DEFAULT '["excel"]'`);
+
+        // review_funnel_settings column expansion
+        await safeQuery('review_funnel.lead_source',          `ALTER TABLE review_funnel_settings ADD COLUMN IF NOT EXISTS lead_source VARCHAR(50) DEFAULT 'qr'`);
+        await safeQuery('review_funnel.lead_sources',         `ALTER TABLE review_funnel_settings ADD COLUMN IF NOT EXISTS lead_sources JSONB DEFAULT '["qr"]'`);
+        await safeQuery('review_funnel.capture_source',       `ALTER TABLE review_funnel_settings ADD COLUMN IF NOT EXISTS capture_source VARCHAR(50) DEFAULT 'qr'`);
+        await safeQuery('review_funnel.capture_sources',      `ALTER TABLE review_funnel_settings ADD COLUMN IF NOT EXISTS capture_sources JSONB DEFAULT '["qr"]'`);
+        await safeQuery('review_funnel.capture_embed_type',   `ALTER TABLE review_funnel_settings ADD COLUMN IF NOT EXISTS capture_embed_type VARCHAR(20) DEFAULT 'inline'`);
+        await safeQuery('review_funnel.whatsapp_enabled',     `ALTER TABLE review_funnel_settings ADD COLUMN IF NOT EXISTS whatsapp_enabled BOOLEAN DEFAULT TRUE`);
+        await safeQuery('review_funnel.email_enabled',        `ALTER TABLE review_funnel_settings ADD COLUMN IF NOT EXISTS email_enabled BOOLEAN DEFAULT TRUE`);
+        await safeQuery('review_funnel.review_next_step_done', `ALTER TABLE review_funnel_settings ADD COLUMN IF NOT EXISTS review_next_step_done BOOLEAN DEFAULT FALSE`);
+        await safeQuery('review_funnel.capture_next_step_done', `ALTER TABLE review_funnel_settings ADD COLUMN IF NOT EXISTS capture_next_step_done BOOLEAN DEFAULT FALSE`);
+        await safeQuery('lead_follow.followup_next_step_done', `ALTER TABLE lead_followup_settings ADD COLUMN IF NOT EXISTS followup_next_step_done BOOLEAN DEFAULT FALSE`);
+        await safeQuery('review_intro_done_backfill', `UPDATE review_funnel_settings SET review_next_step_done = TRUE WHERE is_active IS TRUE AND review_next_step_done IS NOT TRUE`);
+        await safeQuery('capture_intro_done_backfill', `UPDATE review_funnel_settings SET capture_next_step_done = TRUE WHERE lead_capture_active IS TRUE AND capture_next_step_done IS NOT TRUE`);
+        await safeQuery('follow_intro_done_backfill', `UPDATE lead_followup_settings SET followup_next_step_done = TRUE WHERE is_active IS TRUE AND followup_next_step_done IS NOT TRUE`);
+
+        // lead_capture_settings column expansion
+        await safeQuery('lead_capture.lead_source',           `ALTER TABLE lead_capture_settings ADD COLUMN IF NOT EXISTS lead_source VARCHAR(50) DEFAULT 'qr'`);
+        await safeQuery('lead_capture.lead_sources',          `ALTER TABLE lead_capture_settings ADD COLUMN IF NOT EXISTS lead_sources JSONB DEFAULT '["qr"]'`);
+        await safeQuery('lead_capture.capture_source',        `ALTER TABLE lead_capture_settings ADD COLUMN IF NOT EXISTS capture_source VARCHAR(50) DEFAULT 'qr'`);
+        await safeQuery('lead_capture.capture_sources',     `ALTER TABLE lead_capture_settings ADD COLUMN IF NOT EXISTS capture_sources JSONB DEFAULT '["qr"]'`);
+        await safeQuery('lead_capture.whatsapp_enabled',      `ALTER TABLE lead_capture_settings ADD COLUMN IF NOT EXISTS whatsapp_enabled BOOLEAN DEFAULT TRUE`);
+        await safeQuery('lead_capture.email_enabled',         `ALTER TABLE lead_capture_settings ADD COLUMN IF NOT EXISTS email_enabled BOOLEAN DEFAULT TRUE`);
+
+        console.log('âœ… Startup migrations & performance indices verified.');
+        
+        // Finalize Startup
+        startServer();
+    } catch (err) {
+        console.error('âŒ Startup migration failed:', err.message);
+        // Start server anyway to allow debugging/logs
+        startServer();
+    }
+};
+
+const startServer = () => {
+    app.listen(PORT, () => {
+        console.log(`\nðŸš€ Equipo Experto API running on http://localhost:${PORT}`);
+        console.log(`   Environment : ${process.env.NODE_ENV || 'development'}`);
+        console.log(`   CORS origin : ${process.env.FRONTEND_URL || 'http://localhost:5173'}\n`);
+
+        // Start background background Cron Worker
+        startFollowupCron();
+        startWeeklyReportCron();
+        
+        // Restore WhatsApp Sessions
+        restoreActiveSessions();
+
+        Promise.all([
+            isContactFormMailConfigured(),
+            import('./services/contactFormMailService.js').then((m) => m.resolveContactFormSenderUserId()),
+            import('./services/supportMailService.js').then((m) => m.getContactFormInbox()),
+        ])
+            .then(([ok, senderId, inbox]) => {
+                console.log(`   Contact form inbox : ${inbox}`);
+                console.log(
+                    ok
+                        ? `   Contact form send  : configured (sender user ${senderId || 'n/a'})`
+                        : '   Contact form send  : NOT configured — connect Gmail in Dashboard → Integrations',
+                );
+            })
+            .catch(() => {});
+
+        // Keep-alive ping — prevents Render free plan from sleeping (spins down after 15 min)
+        // Set RENDER_EXTERNAL_URL env var in Render dashboard (it's set automatically by Render)
+        if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
+            const pingUrl = `${process.env.RENDER_EXTERNAL_URL}/api/health`;
+            setInterval(async () => {
+                try {
+                    const { default: nodeFetch } = await import('node-fetch');
+                    await nodeFetch(pingUrl, { signal: AbortSignal.timeout(10000) });
+                } catch { /* ignore */ }
+            }, 10 * 60 * 1000);
+            console.log(`   Keep-alive  : pinging ${pingUrl} every 10 min`);
+        }
+    });
+};
+
+runMigrations();

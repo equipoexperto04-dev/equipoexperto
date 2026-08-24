@@ -1,0 +1,100 @@
+﻿import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import DashboardLayout from './layouts/DashboardLayout';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import Dashboard from './pages/Dashboard';
+import ReviewFunnel from './pages/configurations/ReviewFunnel';
+import LeadCapture from './pages/configurations/LeadCapture';
+import LeadFollowUp from './pages/configurations/LeadFollowUp';
+import Integrations from './pages/Integrations';
+import LogsActivity from './pages/LogsActivity';
+import Leads from './pages/Leads';
+import Marketplace from './pages/Marketplace';
+import LandingPage from './pages/LandingPage';
+import Settings from './pages/Settings';
+import Feedback from './pages/Feedback';
+import CreateAutomation from './pages/CreateAutomation';
+import PublicFeedback from './pages/PublicFeedback';
+import PublicLeadForm from './pages/PublicLeadForm';
+import ScrollToTop from './components/ScrollToTop';
+import ProtectedRoute from './components/ProtectedRoute';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
+import EmployeeWizard from './pages/EmployeeWizard';
+import Automations from './pages/Automations';
+import EmployeeGallery from './pages/EmployeeGallery';
+import TranslationEditor from './pages/TranslationEditor';
+import { LanguageProvider } from './context/LanguageContext';
+import { LandingContentProvider } from './context/LandingContentContext';
+import { ToastProvider } from './components/Toast';
+import GoogleOAuthReturn from './pages/GoogleOAuthReturn';
+import BillingSuccess from './pages/BillingSuccess';
+import Checkout from './pages/Checkout';
+
+function App() {
+  return (
+    <Router>
+      <LanguageProvider>
+      <LandingContentProvider>
+      <ToastProvider>
+      <ScrollToTop />
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/oauth/google-return" element={<GoogleOAuthReturn />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/checkout/:planKey" element={<Checkout />} />
+
+        {/* Public Review Funnel Link */}
+        <Route path="/r/:automation_id" element={<PublicFeedback />} />
+        {/* Public Feedback Survey Link */}
+        <Route path="/f/:automation_id" element={<PublicFeedback />} />
+        {/* Public Lead Capture Link */}
+        <Route path="/l/:automation_id" element={<PublicLeadForm />} />
+
+        {/* Protected app shell */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/billing/success" element={<BillingSuccess />} />
+          <Route path="/dashboard/welcome" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/translations" element={<Navigate to="/dashboard/translations-editor" replace />} />
+          <Route path="/dashboard" element={<DashboardLayout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="employee" element={<Navigate to="/dashboard/automations" replace />} />
+            <Route path="employee/:jobId" element={<EmployeeWizard />} />
+            <Route path="automations" element={<Automations />} />
+            <Route path="employee-gallery" element={<EmployeeGallery />} />
+            <Route path="translations-editor" element={<TranslationEditor />} />
+            {/* Legacy routes kept for backward compat */}
+            <Route path="create-automation" element={<CreateAutomation />} />
+            <Route path="config/review-funnel" element={<ReviewFunnel />} />
+            <Route path="config/lead-capture" element={<LeadCapture />} />
+            <Route path="config/lead-followup" element={<LeadFollowUp />} />
+            <Route path="integrations" element={<Integrations />} />
+            <Route path="logs" element={<LogsActivity />} />
+            <Route path="leads" element={<Leads />} />
+            <Route path="feedback" element={<Feedback />} />
+            <Route path="marketplace" element={<Marketplace />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="profile" element={<Settings />} />
+          </Route>
+        </Route>
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      </ToastProvider>
+      </LandingContentProvider>
+      </LanguageProvider>
+    </Router>
+  );
+}
+
+export default App;
+

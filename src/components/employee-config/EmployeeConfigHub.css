@@ -1,0 +1,749 @@
+/* Employee config hub — Better UX AutomationDetailModal layout */
+
+.cfg-page--hub {
+    max-width: 1100px;
+}
+
+.cfg-page--hub.dashboard-page {
+    padding-top: 0.5rem;
+}
+
+.cfg-page--hub .ech-card {
+    box-shadow: var(--cfg-shadow, 0 1px 3px rgba(0, 0, 0, 0.06));
+}
+
+.ech-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    margin-top: 1.25rem;
+}
+
+@media (min-width: 960px) {
+    .ech-grid {
+        grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+        align-items: start;
+    }
+}
+
+.ech-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-width: 0;
+}
+
+.ech-aside {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-width: 0;
+}
+
+.ech-card {
+    background: var(--card-bg, var(--bg-secondary));
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 1.35rem 1.5rem;
+}
+
+.ech-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.ech-card-title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+}
+
+.ech-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.ech-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.ech-btn:hover:not(:disabled) {
+    background: var(--bg-hover, rgba(0, 0, 0, 0.04));
+}
+
+.ech-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.ech-btn--primary {
+    background: var(--text-primary);
+    color: var(--bg-primary, #fff);
+    border-color: var(--text-primary);
+}
+
+.ech-btn--primary:hover:not(:disabled) {
+    opacity: 0.88;
+    background: var(--text-primary);
+    color: var(--bg-primary, #fff);
+}
+
+.ech-btn--danger {
+    color: #dc2626;
+    border-color: rgba(220, 38, 38, 0.25);
+}
+
+.ech-btn--danger:hover:not(:disabled) {
+    background: rgba(220, 38, 38, 0.06);
+}
+
+.ech-btn--block {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 0.65rem 1rem;
+}
+
+.ech-field {
+    margin-bottom: 1.1rem;
+}
+
+.ech-field:last-child {
+    margin-bottom: 0;
+}
+
+.ech-label {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.ech-input,
+.ech-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.85rem;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--input-bg, rgba(0, 0, 0, 0.03));
+    color: var(--text-primary);
+    font-family: inherit;
+    transition: border-color 0.15s, opacity 0.15s;
+}
+
+.ech-textarea {
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.5;
+}
+
+.ech-input:disabled,
+.ech-textarea:disabled {
+    opacity: 0.72;
+    cursor: default;
+}
+
+.ech-input--compact {
+    width: 3.25rem;
+    padding: 0.35rem 0.5rem;
+    text-align: center;
+}
+
+.ech-question--edit .ech-question-meta {
+    margin-bottom: 0.5rem;
+}
+
+.ech-question-weight-edit {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.ech-hint {
+    margin: 0.35rem 0 0;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    line-height: 1.45;
+}
+
+.ech-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 0.5rem;
+}
+
+.ech-pill {
+    padding: 0.2rem 0.55rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.ech-pill:hover:not(:disabled) {
+    border-color: var(--cfg-accent, #3b82f6);
+    color: var(--cfg-accent, #3b82f6);
+}
+
+.ech-pill:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+/* Platform card — compact switches (Better UX) */
+.ech-plat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.ech-plat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--input-bg, rgba(0, 0, 0, 0.02));
+}
+
+.ech-plat-name {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.ech-plat-sub {
+    margin: 0.15rem 0 0;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.ech-plat-connect {
+    margin-top: 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--cfg-accent, #3b82f6);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.ech-plat-connect:hover {
+    text-decoration: underline;
+}
+
+.ech-switch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: var(--border-color);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.ech-switch.is-on {
+    border-color: transparent;
+}
+
+.ech-switch-knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s;
+}
+
+.ech-switch.is-on .ech-switch-knob {
+    transform: translateX(20px);
+}
+
+.ech-switch:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Lead scoring question cards */
+.ech-question {
+    padding: 1rem 1.1rem;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--input-bg, rgba(0, 0, 0, 0.02));
+}
+
+.ech-question-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.35rem;
+}
+
+.ech-question-index {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.ech-question-weight {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.ech-question-text {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    line-height: 1.45;
+}
+
+/* Share block inside card */
+.ech-share {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    align-items: flex-start;
+}
+
+.ech-share-qr {
+    width: 110px;
+    height: 110px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    border: 1px solid var(--border-color);
+}
+
+.ech-share-qr img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.ech-share-link {
+    flex: 1;
+    min-width: 180px;
+}
+
+.ech-share-url {
+    font-size: 0.75rem;
+    word-break: break-all;
+    color: var(--text-secondary);
+    padding: 0.65rem 0.85rem;
+    border-radius: 10px;
+    background: var(--input-bg, rgba(0, 0, 0, 0.03));
+    border: 1px solid var(--border-color);
+    margin-bottom: 0.5rem;
+}
+
+.ech-share-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* Sidebar */
+.ech-stat-value {
+    margin: 0;
+    font-size: 1.65rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+}
+
+.ech-stat-label {
+    margin: 0 0 0.75rem;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.ech-stat-row {
+    margin-bottom: 1rem;
+}
+
+.ech-stat-row:last-child {
+    margin-bottom: 0;
+}
+
+.ech-stat-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.ech-detail-row {
+    margin-bottom: 0.85rem;
+}
+
+.ech-detail-row:last-child {
+    margin-bottom: 0;
+}
+
+.ech-detail-label {
+    margin: 0 0 0.2rem;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.ech-detail-value {
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.ech-save-bar {
+    position: sticky;
+    bottom: 0;
+    margin-top: 1.5rem;
+    padding: 1rem 0 0.25rem;
+    /* Bug 26: Use solid background to prevent underlying content bleeding through */
+    background: var(--bg-primary);
+    box-shadow: 0 40px 0 var(--bg-primary);
+    z-index: 2;
+}
+
+.ech-secondary-link {
+    margin: 0.5rem 0 0;
+    font-size: 0.78rem;
+}
+
+.ech-secondary-link a {
+    color: var(--cfg-accent, #3b82f6);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.ech-secondary-link a:hover {
+    text-decoration: underline;
+}
+
+/* Compact wizard platform inside card */
+.ech-wiz-plat .wiz-plat-header {
+    display: none;
+}
+
+.ech-wiz-plat .wiz-plat {
+    gap: 0;
+}
+
+.ech-wiz-plat .wiz-plat-list {
+    gap: 0.65rem;
+}
+
+.ech-wiz-plat .wiz-plat-row {
+    border-radius: 10px;
+}
+
+.ech-wiz-plat .wiz-plat-note {
+    margin-top: 0.75rem;
+    font-size: 0.72rem;
+}
+
+/* Better UX: simple platform toggles in config hub */
+.ech-wiz-plat .wiz-plat--hub .wiz-plat-list {
+    gap: 0;
+}
+
+.ech-wiz-plat .wiz-plat--hub .wiz-plat-row {
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 0;
+    padding: 0.9rem 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.ech-wiz-plat .wiz-plat--hub .wiz-plat-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.ech-wiz-plat .wiz-plat--hub .wiz-plat-row:first-child {
+    padding-top: 0;
+}
+
+.ech-wiz-plat .wiz-plat--hub .wiz-plat-icon,
+.ech-wiz-plat .wiz-plat--hub .wiz-plat-desc,
+.ech-wiz-plat .wiz-plat--hub .wiz-plat-email,
+.ech-wiz-plat .wiz-plat--hub .wiz-plat-live {
+    display: none;
+}
+
+.ech-wiz-plat .wiz-plat--hub .wiz-plat-row-main {
+    width: 100%;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.ech-wiz-plat .wiz-plat--hub .wiz-plat-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.ech-wiz-plat .wiz-plat--hub .wiz-plat-row-actions {
+    padding: 0.35rem 0 0;
+    margin-left: 0;
+}
+
+.ech-wiz-plat .wiz-plat--hub .wiz-plat-connect-btn {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: 8px;
+}
+
+.ech-embed-type-grid {
+    margin-bottom: 0.25rem;
+}
+
+.ech-embed-code-panel {
+    margin-top: 1rem;
+}
+
+/* Follow-up import */
+.ech-import-last {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    border: 1px solid;
+}
+
+.ech-import-last-copy {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+}
+
+.ech-import-last-title {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ech-import-last-meta {
+    margin: 0;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.ech-import-last-link {
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+    text-decoration: none;
+    flex-shrink: 0;
+}
+
+.ech-import-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    width: 100%;
+    margin-top: 1rem;
+    padding: 2rem 1.25rem;
+    border: 1.5px dashed var(--border-color);
+    border-radius: 12px;
+    background: var(--input-bg, rgba(0, 0, 0, 0.02));
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.ech-import-dropzone:hover {
+    border-color: var(--cfg-accent, #8b5cf6);
+    background: var(--cfg-accent-bg, rgba(139, 92, 246, 0.06));
+}
+
+.ech-import-dropzone p {
+    margin: 0.25rem 0 0;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+.ech-import-dropzone span {
+    color: var(--cfg-accent, #8b5cf6);
+    font-weight: 700;
+}
+
+.ech-import-result {
+    margin-top: 1rem;
+    border-radius: 12px;
+    border: 1px solid;
+    overflow: hidden;
+}
+
+.ech-import-result.is-ok {
+    border-color: rgba(22, 163, 74, 0.25);
+    background: rgba(22, 163, 74, 0.05);
+}
+
+.ech-import-result.is-warn {
+    border-color: rgba(245, 158, 11, 0.3);
+    background: rgba(245, 158, 11, 0.05);
+}
+
+.ech-import-result-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.ech-import-result.is-ok .ech-import-result-head {
+    border-bottom-color: rgba(22, 163, 74, 0.15);
+}
+
+.ech-import-result-title {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.ech-import-result-sub {
+    margin: 0.15rem 0 0;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.ech-import-dismiss {
+    border: none;
+    background: none;
+    cursor: pointer;
+    opacity: 0.5;
+    padding: 0.2rem;
+    color: inherit;
+}
+
+.ech-import-result-body {
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.ech-import-paused-banner {
+    padding: 0.75rem;
+    border-radius: 10px;
+    background: rgba(245, 158, 11, 0.07);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.ech-import-paused-banner strong {
+    display: block;
+    font-size: 0.82rem;
+    color: #92400e;
+}
+
+.ech-import-paused-banner p {
+    margin: 0.25rem 0 0.5rem;
+    font-size: 0.77rem;
+    color: #78350f;
+}
+
+.ech-import-view-leads {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.ech-import-error {
+    margin: 0.75rem 0 0;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    background: rgba(239, 68, 68, 0.06);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.15);
+}
+
+/* Follow-up message steps inside hub */
+.ech-followup-step {
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    background: var(--input-bg, rgba(0, 0, 0, 0.02));
+}
+
+.ech-followup-step-head {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin-bottom: 0.75rem;
+}
+
+.ech-followup-step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 800;
+    background: var(--cfg-accent-bg, rgba(139, 92, 246, 0.1));
+    color: var(--cfg-accent, #8b5cf6);
+}
+
+.ech-followup-step .followup-message-textarea,
+.ech-followup-step .ech-textarea {
+    width: 100%;
+    min-height: 88px;
+    margin-bottom: 0.5rem;
+}

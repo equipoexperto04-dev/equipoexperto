@@ -1,0 +1,16 @@
+file_name,records,test_pattern
+01_clean_high_fit_b2b_leads.csv,150,"Clean, high-fit decision makers with strong intent, good budgets, recent activity."
+02_clean_low_fit_leads.csv,150,"Clean data but low-fit profiles, low budget, weak intent, long urgency."
+03_mixed_quality_realistic_pipeline.csv,200,"Realistic mix of high, medium, and low quality leads."
+04_missing_optional_fields.csv,150,Tests whether scoring survives missing non-critical fields.
+05_missing_critical_fields.csv,150,Tests penalties or fallbacks for missing important scoring fields.
+06_invalid_contact_data.csv,150,"Bad emails, missing emails, strange phone formats, and invalid contact records."
+07_duplicate_and_near_duplicate_leads.csv,150,Exact and near duplicates by email/company/name with slightly different activity.
+08_international_formats_currency_dates_phone.csv,150,"Mixed currencies, phone styles, and date formats."
+09_inconsistent_casing_and_whitespace.csv,150,"Inconsistent casing, whitespace, and normalization edge cases."
+10_spam_fake_disposable_leads.csv,150,"Disposable emails, fake companies, spammy notes, and test records."
+11_contradictory_scoring_signals.csv,150,High-fit fields mixed with low-fit fields to test scoring priority logic.
+12_numeric_outliers_and_bad_numbers.csv,150,"Negative, huge, blank, text, and impossible numeric values."
+13_changed_column_order_with_extra_fields.csv,150,Same core data but shuffled columns plus extra fields.
+14_minimal_schema_leads.csv,150,"Minimal columns only, useful for import fallback testing."
+15_consent_compliance_suppression_cases.csv,150,"Opt-outs, do-not-contact, GDPR-region flags, and suppression cases."

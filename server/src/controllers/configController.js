@@ -1,0 +1,800 @@
+import pool from '../db/pool.js';
+import { frontendBaseUrl } from '../utils/publicUrls.js';
+import crypto from 'crypto';
+import qrcode from 'qrcode';
+import {
+    countEmployeesAfterPatch,
+    getMaxEmployees,
+    getMaxFollowupSequenceSteps,
+    FOLLOWUP_SEQUENCE_HARD_MAX,
+    resolveBillingForEntitlements,
+} from '../services/subscriptionPlans.js';
+
+async function loadBillingRow(userId, authUser = null) {
+    const u = await pool.query(
+        'SELECT plan, trial_ends_at, email, role FROM users WHERE id = $1',
+        [userId]
+    );
+    const row = u.rows[0] || { plan: 'free', trial_ends_at: null };
+    const actor = authUser?.id
+        ? { email: authUser.email ?? row.email, role: authUser.role ?? row.role }
+        : row;
+    return resolveBillingForEntitlements(actor, row.plan, row.trial_ends_at);
+}
+
+function respondEmployeeLimit(res, billing, wouldTotal) {
+    const maxEmp = getMaxEmployees(billing.plan, billing.trial_ends_at);
+    return res.status(403).json({
+        success: false,
+        code: 'EMPLOYEE_PLAN_LIMIT',
+        message: `Your subscription allows ${maxEmp} active automation(s). Turn one off in Employees or upgrade your plan.`,
+        max_employees: maxEmp,
+        attempted: wouldTotal,
+    });
+}
+// GET /api/config/review-funnel
+export const getReviewFunnelConfig = async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT automation_id, google_review_url, notification_email, auto_response_message, filtering_questions, is_active, lead_capture_active, whatsapp_number_fallback, lead_source, capture_source, lead_sources, capture_sources, whatsapp_enabled, email_enabled, COALESCE(capture_embed_type, \'inline\') AS capture_embed_type, COALESCE(review_next_step_done, FALSE) AS review_next_step_done, COALESCE(capture_next_step_done, FALSE) AS capture_next_step_done FROM review_funnel_settings WHERE user_id = $1',
+            [req.user.id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(200).json({ success: true, config: null });
+        }
+
+        const config = result.rows[0];
+        const baseUrl = frontendBaseUrl();
+        if (!baseUrl) {
+            return res.status(500).json({
+                success: false,
+                message: 'Server misconfiguration: set FRONTEND_URL for public links and QR codes.',
+            });
+        }
+
+        // Survey Funnel (New Multi-Rating System)
+        const surveyUrl = `${baseUrl}/f/${config.automation_id}`;
+        const surveyQrCode = await qrcode.toDataURL(`${surveyUrl}?source=qr`);
+
+        // Google Review Funnel (Legacy/Direct)
+        const reviewUrl = `${baseUrl}/r/${config.automation_id}`;
+        const reviewQrCode = await qrcode.toDataURL(`${reviewUrl}?source=qr`);
+        
+        const leadUrl = `${baseUrl}/l/${config.automation_id}`;
+        const leadQrCode = await qrcode.toDataURL(`${leadUrl}?source=qr`);
+
+        return res.status(200).json({
+            success: true,
+            config: { 
+                ...config, 
+                lead_capture_active: config.lead_capture_active,
+                whatsapp_number_fallback: config.whatsapp_number_fallback,
+                publicUrl: surveyUrl, 
+                qrCodeDataUrl: surveyQrCode,
+                surveyUrl,
+                surveyQrCode,
+                reviewUrl,
+                reviewQrCode,
+                leadUrl,
+                leadQrCode,
+                lead_source: config.lead_source || 'qr',
+                capture_source: config.capture_source || 'qr',
+                lead_sources: (() => {
+                    const raw = config.lead_sources
+                        ? typeof config.lead_sources === 'string'
+                            ? JSON.parse(config.lead_sources)
+                            : config.lead_sources
+                        : [config.lead_source || 'qr'];
+                    const list = Array.isArray(raw) ? raw : [raw];
+                    const filtered = list.filter((s) => s && s !== 'website');
+                    return filtered.length ? filtered : ['qr'];
+                })(),
+                capture_sources: config.capture_sources ? (typeof config.capture_sources === 'string' ? JSON.parse(config.capture_sources) : config.capture_sources) : [config.capture_source || 'qr'],
+                whatsapp_enabled: config.whatsapp_enabled ?? true,
+                email_enabled: config.email_enabled ?? true,
+                review_next_step_done: !!config.review_next_step_done,
+                capture_next_step_done: !!config.capture_next_step_done
+            }
+        });
+    } catch (err) {
+        console.error('[getReviewFunnelConfig] Error:', err.message);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+/** Create or return the user's stable public automation_id (for embed snippets before full hire). */
+async function resolveOrCreateAutomationId(userId) {
+    const result = await pool.query(
+        'SELECT automation_id FROM review_funnel_settings WHERE user_id = $1',
+        [userId]
+    );
+    if (result.rows.length > 0 && result.rows[0].automation_id) {
+        return result.rows[0].automation_id;
+    }
+    const automationId = crypto.randomBytes(4).toString('hex');
+    if (result.rows.length === 0) {
+        await pool.query(
+            `INSERT INTO review_funnel_settings
+                (user_id, automation_id, google_review_url, notification_email, auto_response_message,
+                 filtering_questions, lead_capture_active, is_active, whatsapp_number_fallback,
+                 lead_source, capture_source, updated_at)
+             VALUES ($1, $2, '', '', '', '[]', false, false, '', 'qr', 'qr', NOW())`,
+            [userId, automationId]
+        );
+    } else {
+        await pool.query(
+            'UPDATE review_funnel_settings SET automation_id = $2, updated_at = NOW() WHERE user_id = $1',
+            [userId, automationId]
+        );
+    }
+    return automationId;
+}
+
+// POST /api/config/ensure-automation-id — idempotent; returns leadUrl + QR for copy-paste embeds
+export const ensureAutomationId = async (req, res) => {
+    try {
+        const baseUrl = frontendBaseUrl();
+        if (!baseUrl) {
+            return res.status(500).json({
+                success: false,
+                message: 'Server misconfiguration: set FRONTEND_URL for public links and QR codes.',
+            });
+        }
+        const automationId = await resolveOrCreateAutomationId(req.user.id);
+        const leadUrl = `${baseUrl}/l/${automationId}`;
+        const leadQrCode = await qrcode.toDataURL(`${leadUrl}?source=qr`);
+        return res.status(200).json({
+            success: true,
+            automation_id: automationId,
+            leadUrl,
+            leadQrCode,
+        });
+    } catch (err) {
+        console.error('[ensureAutomationId] Error:', err.message);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// POST /api/config/review-funnel
+export const saveReviewFunnelConfig = async (req, res) => {
+    console.log('[saveReviewFunnelConfig] Received:', req.body);
+    try {
+        const { 
+            google_review_url, notification_email, auto_response_message, 
+            filtering_questions, lead_capture_active, is_active, 
+            whatsapp_number_fallback, lead_source, capture_source,
+            whatsapp_enabled, email_enabled
+        } = req.body;
+
+        // Generate an automation ID if one doesn't exist
+        const result = await pool.query('SELECT automation_id FROM review_funnel_settings WHERE user_id = $1', [req.user.id]);
+        let automationId = result.rows.length > 0 ? result.rows[0].automation_id : crypto.randomBytes(4).toString('hex');
+
+        const isValidSource = (s) => s === 'qr' || s === 'excel' || s === 'website';
+        const parseSourcesArray = (val, fallback) => {
+            if (Array.isArray(val)) {
+                const filtered = val.filter(isValidSource);
+                if (filtered.length) return [...new Set(filtered)];
+            }
+            if (typeof val === 'string') {
+                try {
+                    const parsed = JSON.parse(val);
+                    if (Array.isArray(parsed)) {
+                        const filtered = parsed.filter(isValidSource);
+                        if (filtered.length) return [...new Set(filtered)];
+                    }
+                } catch {
+                    /* single string */
+                }
+                if (isValidSource(val)) return [val];
+            }
+            return [fallback];
+        };
+
+        const validatedLeadSource = isValidSource(lead_source) ? lead_source : (req.body.goal === 'capture' ? undefined : 'qr');
+        const validatedCaptureSource = isValidSource(capture_source) ? capture_source : (req.body.goal === 'review' ? undefined : 'qr');
+
+        // Get existing to avoid overwrites if not provided
+        const existingConfigRes = await pool.query('SELECT * FROM review_funnel_settings WHERE user_id = $1', [req.user.id]);
+        const existingConfig = existingConfigRes.rows[0] || {};
+
+        let leadSourcesArr = parseSourcesArray(
+            existingConfig.lead_sources,
+            existingConfig.lead_source || 'qr'
+        );
+        let captureSourcesArr = parseSourcesArray(
+            existingConfig.capture_sources,
+            existingConfig.capture_source || 'qr'
+        );
+        if (Array.isArray(req.body.lead_sources) && req.body.lead_sources.length) {
+            leadSourcesArr = req.body.lead_sources
+                .filter(isValidSource)
+                .filter((s) => s !== 'website');
+            if (!leadSourcesArr.length) leadSourcesArr = ['qr'];
+        }
+        leadSourcesArr = leadSourcesArr.filter((s) => s !== 'website');
+        if (Array.isArray(req.body.capture_sources) && req.body.capture_sources.length) {
+            captureSourcesArr = req.body.capture_sources.filter(isValidSource);
+            if (!captureSourcesArr.length) captureSourcesArr = ['qr'];
+        }
+
+        const finalLeadSource = validatedLeadSource || leadSourcesArr[0] || 'qr';
+        const finalCaptureSource = validatedCaptureSource || captureSourcesArr[0] || 'qr';
+
+        // CRITICAL: Each goal only controls its own flag — never touch the other engine's flag
+        let finalReviewActive, finalCaptureActive;
+        if (req.body.goal === 'capture') {
+            // Only update Lead Capture flag; preserve Review Funnel's existing state
+            finalReviewActive = existingConfig.is_active ?? false;
+            finalCaptureActive = lead_capture_active !== undefined ? lead_capture_active : (existingConfig.lead_capture_active ?? false);
+        } else {
+            // Only update Review Funnel flag; preserve Lead Capture's existing state
+            finalReviewActive = is_active !== undefined ? is_active : (existingConfig.is_active ?? false);
+            finalCaptureActive = existingConfig.lead_capture_active ?? false;
+        }
+
+        // Only pull GMB review link when configuring the review employee — not lead capture
+        let finalGoogleReviewUrl = google_review_url;
+        if (req.body.goal === 'capture') {
+            finalGoogleReviewUrl =
+                google_review_url !== undefined
+                    ? google_review_url
+                    : (existingConfig.google_review_url || '');
+        } else if (!finalGoogleReviewUrl || finalGoogleReviewUrl.trim() === '') {
+            const googleIntRes = await pool.query(
+                'SELECT account_id FROM integrations WHERE user_id = $1 AND provider = $2',
+                [req.user.id, 'google']
+            );
+            if (googleIntRes.rows.length > 0 && googleIntRes.rows[0].account_id.startsWith('http')) {
+                finalGoogleReviewUrl = googleIntRes.rows[0].account_id;
+            }
+        }
+
+        const lfEmpRes = await pool.query(
+            'SELECT is_active FROM lead_followup_settings WHERE user_id = $1',
+            [req.user.id]
+        );
+        const lfEmpRow = lfEmpRes.rows[0] || {};
+        const projectedEmployees = countEmployeesAfterPatch({
+            rf: existingConfig,
+            lf: lfEmpRow,
+            patch: {
+                is_active: finalReviewActive,
+                lead_capture_active: finalCaptureActive,
+            },
+        });
+        const billingRow = await loadBillingRow(req.user.id, req.user);
+        const maxEmployeesAllowed = getMaxEmployees(billingRow.plan, billingRow.trial_ends_at);
+        if (projectedEmployees > maxEmployeesAllowed) {
+            return respondEmployeeLimit(res, billingRow, projectedEmployees);
+        }
+
+        const reviewIntroDone = !!existingConfig.review_next_step_done || !!finalReviewActive;
+        const captureIntroDone = !!existingConfig.capture_next_step_done || !!finalCaptureActive;
+
+        await pool.query(
+            `INSERT INTO review_funnel_settings 
+                (user_id, automation_id, google_review_url, notification_email, auto_response_message, filtering_questions, lead_capture_active, is_active, whatsapp_number_fallback, lead_source, capture_source, whatsapp_enabled, email_enabled, review_next_step_done, capture_next_step_done, updated_at) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
+             ON CONFLICT (user_id) DO UPDATE SET 
+                google_review_url = EXCLUDED.google_review_url,
+                notification_email = EXCLUDED.notification_email,
+                auto_response_message = EXCLUDED.auto_response_message,
+                filtering_questions = EXCLUDED.filtering_questions,
+                lead_capture_active = EXCLUDED.lead_capture_active,
+                is_active = EXCLUDED.is_active,
+                whatsapp_number_fallback = EXCLUDED.whatsapp_number_fallback,
+                lead_source = EXCLUDED.lead_source,
+                capture_source = EXCLUDED.capture_source,
+                whatsapp_enabled = EXCLUDED.whatsapp_enabled,
+                email_enabled = EXCLUDED.email_enabled,
+                review_next_step_done = EXCLUDED.review_next_step_done,
+                capture_next_step_done = EXCLUDED.capture_next_step_done,
+                updated_at = NOW()`,
+            [
+                req.user.id, automationId, 
+                finalGoogleReviewUrl !== undefined ? finalGoogleReviewUrl : existingConfig.google_review_url || '', 
+                notification_email !== undefined ? notification_email : existingConfig.notification_email || '', 
+                auto_response_message !== undefined ? auto_response_message : existingConfig.auto_response_message || '', 
+                JSON.stringify(filtering_questions || existingConfig.filtering_questions || []), 
+                finalCaptureActive, 
+                finalReviewActive, 
+                whatsapp_number_fallback !== undefined ? whatsapp_number_fallback : existingConfig.whatsapp_number_fallback || '', 
+                finalLeadSource, finalCaptureSource,
+                whatsapp_enabled !== undefined ? whatsapp_enabled : (existingConfig.whatsapp_enabled ?? true),
+                email_enabled !== undefined ? email_enabled : (existingConfig.email_enabled ?? true),
+                reviewIntroDone,
+                captureIntroDone,
+            ]
+        );
+
+        // Save multi-source arrays (columns added via migration; fails silently if not yet present)
+        try {
+            await pool.query(
+                `UPDATE review_funnel_settings SET lead_sources = $1, capture_sources = $2 WHERE user_id = $3`,
+                [JSON.stringify(leadSourcesArr), JSON.stringify(captureSourcesArr), req.user.id]
+            );
+        } catch (_) { /* column not yet migrated — safe to ignore */ }
+
+        const embedType = req.body.capture_embed_type;
+        if (embedType === 'widget' || embedType === 'inline') {
+            try {
+                await pool.query(
+                    `UPDATE review_funnel_settings SET capture_embed_type = $1 WHERE user_id = $2`,
+                    [embedType, req.user.id],
+                );
+            } catch (_) { /* column not yet migrated */ }
+        }
+
+        const baseUrl = frontendBaseUrl();
+        if (!baseUrl) {
+            return res.status(500).json({
+                success: false,
+                message: 'Server misconfiguration: set FRONTEND_URL for public links and QR codes.',
+            });
+        }
+        const surveyUrl = `${baseUrl}/f/${automationId}`;
+        const surveyQrCode = await qrcode.toDataURL(`${surveyUrl}?source=qr`);
+        const reviewUrl = `${baseUrl}/r/${automationId}`;
+        const reviewQrCode = await qrcode.toDataURL(`${reviewUrl}?source=qr`);
+        const leadUrl = `${baseUrl}/l/${automationId}`;
+        const leadQrCode = await qrcode.toDataURL(`${leadUrl}?source=qr`);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Review funnel settings saved successfully!',
+            config: {
+                automation_id: automationId,
+                google_review_url,
+                notification_email,
+                auto_response_message,
+                filtering_questions: filtering_questions || [],
+                lead_capture_active,
+                whatsapp_number_fallback,
+                publicUrl: surveyUrl, 
+                qrCodeDataUrl: surveyQrCode,
+                surveyUrl,
+                surveyQrCode,
+                reviewUrl,
+                reviewQrCode,
+                leadUrl,
+                leadQrCode,
+                lead_source: finalLeadSource,
+                capture_source: finalCaptureSource,
+                lead_sources: leadSourcesArr,
+                capture_sources: captureSourcesArr,
+                is_active: finalReviewActive,
+                lead_capture_active: finalCaptureActive,
+                review_next_step_done: reviewIntroDone,
+                capture_next_step_done: captureIntroDone,
+            }
+        });
+
+    } catch (err) {
+        console.error('[saveReviewFunnelConfig] CRITICAL ERR:', err.code, err.message, err.detail || '');
+        return res.status(500).json({ success: false, message: err.message || 'Internal server error', code: err.code });
+    }
+};
+
+async function queryLeadFollowupSettings(userId) {
+    try {
+        return await pool.query(
+            'SELECT is_active, delay_value, delay_unit, message, reminder_active, reminder_delay_value, reminder_delay_unit, reminder_message, lead_source, lead_sources, whatsapp_enabled, email_enabled, followup_sequence, COALESCE(followup_next_step_done, FALSE) AS followup_next_step_done FROM lead_followup_settings WHERE user_id = $1',
+            [userId]
+        );
+    } catch (e) {
+        if (e.code !== '42703') throw e;
+        return pool.query(
+            'SELECT is_active, delay_value, delay_unit, message, lead_source FROM lead_followup_settings WHERE user_id = $1',
+            [userId]
+        );
+    }
+}
+
+function normalizeLeadFollowupRow(row) {
+    if (!row) return null;
+    let followup_sequence = row.followup_sequence ?? [];
+    if (typeof followup_sequence === 'string') {
+        try {
+            followup_sequence = JSON.parse(followup_sequence);
+        } catch {
+            followup_sequence = [];
+        }
+    }
+    if (!Array.isArray(followup_sequence)) followup_sequence = [];
+
+    return {
+        is_active: !!row.is_active,
+        delay_value: row.delay_value ?? 24,
+        delay_unit: row.delay_unit ?? 'hours',
+        message: row.message ?? '',
+        reminder_active: row.reminder_active ?? false,
+        reminder_delay_value: row.reminder_delay_value ?? 48,
+        reminder_delay_unit: row.reminder_delay_unit ?? 'hours',
+        reminder_message: row.reminder_message ?? '',
+        lead_source: row.lead_source ?? 'excel',
+        lead_sources: (() => {
+            const raw = row.lead_sources ?? row.lead_source ?? 'excel';
+            if (Array.isArray(raw)) return raw.filter((s) => ['qr', 'excel', 'website'].includes(s));
+            if (typeof raw === 'string') {
+                try {
+                    const p = JSON.parse(raw);
+                    if (Array.isArray(p)) return p.filter((s) => ['qr', 'excel', 'website'].includes(s));
+                } catch {
+                    if (['qr', 'excel', 'website'].includes(raw)) return [raw];
+                }
+            }
+            return ['excel'];
+        })(),
+        whatsapp_enabled: row.whatsapp_enabled ?? true,
+        email_enabled: row.email_enabled ?? true,
+        followup_sequence,
+        followup_next_step_done: !!row.followup_next_step_done,
+    };
+}
+
+// GET /api/config/lead-followup
+export const getLeadFollowupConfig = async (req, res) => {
+    try {
+        const result = await queryLeadFollowupSettings(req.user.id);
+
+        if (result.rows.length === 0) {
+            return res.status(200).json({ success: true, config: null });
+        }
+
+        return res.status(200).json({
+            success: true,
+            config: normalizeLeadFollowupRow(result.rows[0]),
+        });
+    } catch (err) {
+        console.error('[getLeadFollowupConfig] Error:', err.code, err.message, err.detail || '');
+        return res.status(500).json({ success: false, message: 'Server error', code: err.code });
+    }
+};
+
+// POST /api/config/lead-followup
+export const saveLeadFollowupConfig = async (req, res) => {
+    try {
+        const passed = req.body;
+
+        const existingRes = await queryLeadFollowupSettings(req.user.id);
+        const existing = existingRes.rows.length > 0 ? existingRes.rows[0] : {};
+
+        // Merge inputs with existing (or defaults if new)
+        let is_active = passed.is_active !== undefined ? passed.is_active : (existing.is_active ?? false);
+        const delay_value = passed.delay_value !== undefined ? passed.delay_value : (existing.delay_value ?? 24);
+        const delay_unit = passed.delay_unit !== undefined ? passed.delay_unit : (existing.delay_unit ?? 'hours');
+        const message =
+            passed.message !== undefined
+                ? passed.message
+                : passed.auto_response_message !== undefined
+                  ? passed.auto_response_message
+                  : (existing.message ?? 'Hey, just following up on your inquiry from yesterday. Are you still looking for help with this? Let me know!');
+        const isValidLfSource = (s) => s === 'qr' || s === 'excel' || s === 'website';
+        let leadSourcesLf = (() => {
+            const raw = existing.lead_sources ?? existing.lead_source ?? 'excel';
+            if (Array.isArray(raw)) return raw.filter(isValidLfSource);
+            if (typeof raw === 'string') {
+                try {
+                    const p = JSON.parse(raw);
+                    if (Array.isArray(p)) return p.filter(isValidLfSource);
+                } catch {
+                    if (isValidLfSource(raw)) return [raw];
+                }
+            }
+            return ['excel'];
+        })();
+        if (Array.isArray(passed.lead_sources) && passed.lead_sources.length) {
+            leadSourcesLf = passed.lead_sources.filter(isValidLfSource);
+            if (!leadSourcesLf.length) leadSourcesLf = ['excel'];
+        }
+        const lead_source =
+            passed.lead_source !== undefined && isValidLfSource(passed.lead_source)
+                ? passed.lead_source
+                : (leadSourcesLf[0] || existing.lead_source || 'excel');
+        const whatsapp_enabled = passed.whatsapp_enabled !== undefined ? passed.whatsapp_enabled : (existing.whatsapp_enabled ?? true);
+        const email_enabled = passed.email_enabled !== undefined ? passed.email_enabled : (existing.email_enabled ?? true);
+
+        const reminder_active = passed.reminder_active !== undefined ? passed.reminder_active : (existing.reminder_active ?? false);
+        const reminder_delay_value = passed.reminder_delay_value !== undefined ? passed.reminder_delay_value : (existing.reminder_delay_value ?? 48);
+        const reminder_delay_unit = passed.reminder_delay_unit !== undefined ? passed.reminder_delay_unit : (existing.reminder_delay_unit ?? 'hours');
+        const reminder_message = passed.reminder_message !== undefined ? passed.reminder_message : (existing.reminder_message ?? 'Hi again! Just a friendly reminder about your inquiry. We haven\'t heard back and want to make sure you got our last message.');
+        const rawFollowupSeq =
+            passed.followup_sequence !== undefined
+                ? passed.followup_sequence
+                : (existing.followup_sequence ?? []);
+        let followup_sequence =
+            typeof rawFollowupSeq === 'string'
+                ? (() => {
+                      try {
+                          return JSON.parse(rawFollowupSeq);
+                      } catch {
+                          return [];
+                      }
+                  })()
+                : rawFollowupSeq;
+        if (!Array.isArray(followup_sequence)) followup_sequence = [];
+
+        const billingLf = await loadBillingRow(req.user.id, req.user);
+        const planMaxFollowSteps = getMaxFollowupSequenceSteps(billingLf.plan, billingLf.trial_ends_at);
+        const maxFollowSteps = planMaxFollowSteps ?? FOLLOWUP_SEQUENCE_HARD_MAX;
+        if (followup_sequence.length > maxFollowSteps) {
+            return res.status(403).json({
+                success: false,
+                code: 'FOLLOWUP_SEQUENCE_PLAN_LIMIT',
+                message: `Your plan allows up to ${maxFollowSteps} follow-up step(s) in this sequence. Remove extra steps or upgrade to use more.`,
+                max_steps: maxFollowSteps,
+                attempted: followup_sequence.length,
+            });
+        }
+
+        const rfEmp = await pool.query(
+            'SELECT is_active, lead_capture_active FROM review_funnel_settings WHERE user_id = $1',
+            [req.user.id]
+        );
+        const requestedActive = !!is_active;
+        const maxEmpLf = getMaxEmployees(billingLf.plan, billingLf.trial_ends_at);
+        const projectedLfEmp = countEmployeesAfterPatch({
+            rf: rfEmp.rows[0] || {},
+            lf: existing,
+            patch: { followup_active: requestedActive },
+        });
+        let hiredPaused = false;
+        if (projectedLfEmp > maxEmpLf && requestedActive) {
+            is_active = false;
+            hiredPaused = true;
+        }
+
+        const followIntroDone = !!existing.followup_next_step_done || requestedActive;
+
+        try {
+            await pool.query(
+                `INSERT INTO lead_followup_settings
+                    (user_id, is_active, delay_value, delay_unit, message,
+                     reminder_active, reminder_delay_value, reminder_delay_unit, reminder_message, lead_source, whatsapp_enabled, email_enabled, followup_sequence, followup_next_step_done, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+                 ON CONFLICT (user_id) DO UPDATE SET
+                    is_active = EXCLUDED.is_active,
+                    delay_value = EXCLUDED.delay_value,
+                    delay_unit = EXCLUDED.delay_unit,
+                    message = EXCLUDED.message,
+                    reminder_active = EXCLUDED.reminder_active,
+                    reminder_delay_value = EXCLUDED.reminder_delay_value,
+                    reminder_delay_unit = EXCLUDED.reminder_delay_unit,
+                    reminder_message = EXCLUDED.reminder_message,
+                    lead_source = EXCLUDED.lead_source,
+                    whatsapp_enabled = EXCLUDED.whatsapp_enabled,
+                    email_enabled = EXCLUDED.email_enabled,
+                    followup_sequence = EXCLUDED.followup_sequence,
+                    followup_next_step_done = EXCLUDED.followup_next_step_done,
+                    updated_at = NOW()`,
+                [req.user.id, is_active, delay_value, delay_unit, message,
+                    reminder_active, reminder_delay_value, reminder_delay_unit, reminder_message, lead_source,
+                    whatsapp_enabled, email_enabled, JSON.stringify(followup_sequence), followIntroDone]
+            );
+            try {
+                await pool.query(
+                    'UPDATE lead_followup_settings SET lead_sources = $1 WHERE user_id = $2',
+                    [JSON.stringify(leadSourcesLf), req.user.id]
+                );
+            } catch (_) {
+                /* column optional */
+            }
+        } catch (e) {
+            if (e.code !== '42703') throw e;
+            // Columns not yet migrated — save only guaranteed-present core fields (no updated_at)
+            await pool.query(
+                `INSERT INTO lead_followup_settings (user_id, is_active, delay_value, delay_unit, message, lead_source)
+                 VALUES ($1, $2, $3, $4, $5, $6)
+                 ON CONFLICT (user_id) DO UPDATE SET
+                    is_active = EXCLUDED.is_active,
+                    delay_value = EXCLUDED.delay_value,
+                    delay_unit = EXCLUDED.delay_unit,
+                    message = EXCLUDED.message,
+                    lead_source = EXCLUDED.lead_source`,
+                [req.user.id, is_active, delay_value, delay_unit, message, lead_source]
+            );
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: hiredPaused
+                ? 'Follow-up employee saved. Turn off another active employee or upgrade your plan to start this one.'
+                : 'Lead follow-up settings saved successfully!',
+            hired_paused: hiredPaused,
+            config: {
+                is_active, delay_value, delay_unit, message,
+                reminder_active, reminder_delay_value, reminder_delay_unit, reminder_message, lead_source,
+                lead_sources: leadSourcesLf,
+                followup_sequence,
+                whatsapp_enabled, email_enabled, followup_next_step_done: followIntroDone,
+            }
+        });
+
+    } catch (err) {
+        console.error('[saveLeadFollowupConfig] Error:', err.code, err.message, err.detail || '');
+        return res.status(500).json({ success: false, message: `Server error: ${err.message}`, code: err.code });
+    }
+};
+
+export const toggleRecipe = async (req, res) => {
+    try {
+        const { recipe, is_active } = req.body;
+        const userId = req.user.id;
+
+        if (is_active === true) {
+            const [rfRes, lfRes, billingEmp] = await Promise.all([
+                pool.query(
+                    'SELECT is_active, lead_capture_active FROM review_funnel_settings WHERE user_id = $1',
+                    [userId]
+                ),
+                pool.query('SELECT is_active FROM lead_followup_settings WHERE user_id = $1', [userId]),
+                loadBillingRow(userId, req.user),
+            ]);
+            const patch = {};
+            if (recipe === 'reviewFunnel') patch.is_active = true;
+            else if (recipe === 'leadCapture') patch.lead_capture_active = true;
+            else if (recipe === 'leadFollowUp') patch.followup_active = true;
+            const projected = countEmployeesAfterPatch({
+                rf: rfRes.rows[0] || {},
+                lf: lfRes.rows[0] || {},
+                patch,
+            });
+            if (projected > getMaxEmployees(billingEmp.plan, billingEmp.trial_ends_at)) {
+                return respondEmployeeLimit(res, billingEmp, projected);
+            }
+        }
+
+        if (recipe === 'reviewFunnel') {
+            await pool.query(
+                `INSERT INTO review_funnel_settings (user_id, automation_id, google_review_url, notification_email, is_active, review_next_step_done)
+                 VALUES ($1, md5(random()::text), '', '', $2, $2)
+                 ON CONFLICT (user_id) DO UPDATE SET 
+                    is_active = EXCLUDED.is_active,
+                    review_next_step_done = COALESCE(review_funnel_settings.review_next_step_done, FALSE) OR EXCLUDED.is_active`,
+                [userId, is_active]
+            );
+        } else if (recipe === 'leadCapture') {
+            await pool.query(
+                `INSERT INTO review_funnel_settings (user_id, automation_id, google_review_url, notification_email, lead_capture_active, capture_next_step_done)
+                 VALUES ($1, md5(random()::text), '', '', $2, $2)
+                 ON CONFLICT (user_id) DO UPDATE SET 
+                    lead_capture_active = EXCLUDED.lead_capture_active,
+                    capture_next_step_done = COALESCE(review_funnel_settings.capture_next_step_done, FALSE) OR EXCLUDED.lead_capture_active`,
+                [userId, is_active]
+            );
+        } else if (recipe === 'leadFollowUp') {
+            await pool.query(
+                `INSERT INTO lead_followup_settings (user_id, is_active, followup_next_step_done) 
+                 VALUES ($1, $2, $2)
+                 ON CONFLICT (user_id) DO UPDATE SET 
+                    is_active = EXCLUDED.is_active,
+                    followup_next_step_done = COALESCE(lead_followup_settings.followup_next_step_done, FALSE) OR EXCLUDED.is_active`,
+                [userId, is_active]
+            );
+        } else {
+            return res.status(400).json({ success: false, message: 'Unknown recipe type.' });
+        }
+
+        return res.status(200).json({ success: true });
+    } catch (err) {
+        console.error('[toggleRecipe] Error:', err.message);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+/** Whether lead capture still counts as "hired" on the shared review_funnel_settings row. */
+function isLeadCaptureHiredRow(row) {
+    if (!row) return false;
+    return !!(row.lead_capture_active || row.capture_next_step_done);
+}
+
+/** Whether review funnel still counts as "hired" on the shared review_funnel_settings row. */
+function isReviewFunnelHiredRow(row) {
+    if (!row) return false;
+    return !!(row.is_active || row.review_next_step_done);
+}
+
+export const deleteAutomation = async (req, res) => {
+    try {
+        const { recipe, deleteRelatedData, deleteLogs } = req.body;
+        const userId = req.user.id;
+
+        if (recipe === 'reviewFunnel') {
+            const queries = [];
+
+            const current = await pool.query(
+                `SELECT lead_capture_active, COALESCE(capture_next_step_done, FALSE) AS capture_next_step_done
+                 FROM review_funnel_settings WHERE user_id = $1`,
+                [userId]
+            );
+            const row = current.rows[0];
+            const captureStillHired = isLeadCaptureHiredRow(row);
+
+            if (captureStillHired) {
+                // Wipe ALL review-funnel-specific fields; leave lead-capture fields intact
+                queries.push(pool.query(
+                    `UPDATE review_funnel_settings SET
+                        is_active             = FALSE,
+                        google_review_url     = '',
+                        auto_response_message = NULL,
+                        review_next_step_done = FALSE,
+                        updated_at            = NOW()
+                     WHERE user_id = $1`,
+                    [userId]
+                ));
+            } else {
+                queries.push(pool.query('DELETE FROM review_funnel_settings WHERE user_id = $1', [userId]));
+            }
+
+            if (deleteRelatedData) {
+                queries.push(pool.query('DELETE FROM feedback WHERE user_id = $1', [userId]));
+            }
+
+            await Promise.all(queries);
+        }
+        else if (recipe === 'leadCapture') {
+            const queries = [];
+
+            const current = await pool.query(
+                `SELECT is_active, google_review_url,
+                        COALESCE(review_next_step_done, FALSE) AS review_next_step_done
+                 FROM review_funnel_settings WHERE user_id = $1`,
+                [userId]
+            );
+            const row = current.rows[0];
+            const reviewStillHired = isReviewFunnelHiredRow(row);
+
+            if (reviewStillHired) {
+                // Wipe ALL lead-capture-specific fields; leave review-funnel fields intact
+                queries.push(pool.query(
+                    `UPDATE review_funnel_settings SET
+                        lead_capture_active      = FALSE,
+                        capture_next_step_done   = FALSE,
+                        whatsapp_number_fallback = '',
+                        filtering_questions      = '[]',
+                        notification_email       = '',
+                        updated_at               = NOW()
+                     WHERE user_id = $1`,
+                    [userId]
+                ));
+            } else {
+                queries.push(pool.query('DELETE FROM review_funnel_settings WHERE user_id = $1', [userId]));
+            }
+
+            if (deleteRelatedData) {
+                queries.push(pool.query("DELETE FROM leads WHERE user_id = $1 AND source ILIKE '%Capture%'", [userId]));
+            }
+
+            await Promise.all(queries);
+        }
+        else if (recipe === 'leadFollowUp') {
+            const queries = [pool.query('DELETE FROM lead_followup_settings WHERE user_id = $1', [userId])];
+
+            if (deleteRelatedData) {
+                queries.push(pool.query('DELETE FROM leads WHERE user_id = $1', [userId]));
+            }
+
+            await Promise.all(queries);
+        } else {
+            return res.status(400).json({ success: false, message: 'Unknown automation type.' });
+        }
+
+        if (deleteLogs) {
+            // Map recipe key to log friendly name
+            const logNameMap = {
+                reviewFunnel: 'Review Funnel',
+                leadCapture: 'Lead Capture',
+                leadFollowUp: 'Lead Follow-up'
+            };
+            const automationName = logNameMap[recipe];
+            await pool.query('DELETE FROM activity_logs WHERE user_id = $1 AND automation_name = $2', [userId, automationName]);
+        }
+
+        return res.status(200).json({ success: true, message: 'Automation deleted successfully.' });
+    } catch (err) {
+        console.error('[deleteAutomation] Error:', err.message);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
+};

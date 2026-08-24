@@ -1,0 +1,96 @@
+// Blog content data — each post is a list of simple content blocks rendered by BlogPost.jsx.
+// Block types: { type: 'p', text }, { type: 'h2', text }, { type: 'ul', items: [...] }, { type: 'quote', text }
+
+export const blogPosts = [
+    {
+        slug: 'how-to-respond-to-negative-reviews',
+        title: 'How to Respond to Negative Reviews: Templates That Actually Work',
+        description: 'A simple framework and copy-paste templates for responding to 1- and 2-star reviews — without sounding defensive or scripted.',
+        date: '2026-06-11',
+        readTime: '6 min read',
+        content: [
+            { type: 'p', text: "A bad review feels personal, but how you respond to it matters more than the review itself. Most people reading reviews aren't just checking your star rating — they're checking how you handle criticism. A thoughtful, calm reply to a 1-star review can do more for your reputation than ten 5-star reviews with no replies at all." },
+            { type: 'h2', text: 'The 4-step framework' },
+            { type: 'ul', items: [
+                'Acknowledge — Thank them for the feedback, even if it stings. Skip the "I\'m sorry you feel that way" — own it.',
+                'Apologize for the experience — Not necessarily for being wrong, but for the experience they had.',
+                'Explain briefly (if needed) — One sentence max. This is not the place for a long defense.',
+                'Take it offline — Give a direct contact (phone/email) to resolve it privately. This shows future readers you care, without airing details publicly.',
+            ] },
+            { type: 'h2', text: 'Template: Service complaint (1–2 stars)' },
+            { type: 'quote', text: "Hi {name}, thanks for taking the time to share this — and I'm sorry your visit didn't go the way it should have. That's not the experience we want anyone to have. I'd like to make this right; please reach out to me directly at {email} or {phone} so we can sort it out." },
+            { type: 'h2', text: 'Template: Product or quality issue' },
+            { type: 'quote', text: "Hi {name}, thank you for the honest feedback. We hold our {product/service} to a higher standard than this, and I want to look into what happened. Please contact us at {email} so we can make it right — we'd love the chance to fix this for you." },
+            { type: 'h2', text: 'Template: Review that feels unfair or inaccurate' },
+            { type: 'quote', text: "Hi {name}, thanks for sharing your experience. We don't have a record matching these details under your name — we'd really like to understand what happened so we can address it properly. Please reach out at {email} so we can look into this directly." },
+            { type: 'h2', text: 'What not to do' },
+            { type: 'ul', items: [
+                "Don't argue in public — even if the reviewer is wrong, a public back-and-forth makes you look defensive to everyone else reading.",
+                "Don't copy-paste the exact same reply to every review — Google and readers both notice generic responses.",
+                "Don't ignore it — an unanswered negative review sits at the top of your profile indefinitely.",
+            ] },
+            { type: 'h2', text: 'The real fix: more reviews, faster' },
+            { type: 'p', text: "One bad review hurts more when it's one of only a handful you have. Businesses that consistently ask happy customers for reviews — right after a good interaction — build a buffer that puts occasional criticism in context. That's the core of our Review Funnel: a QR code or list-based request that goes out automatically after each job, so reviews keep coming in without you having to remember to ask." },
+        ],
+    },
+    {
+        slug: 'how-to-get-more-google-reviews',
+        title: 'How to Get More Google Reviews From Customers (Without Being Annoying)',
+        description: 'Local SEO runs on review volume and recency. Here\'s exactly when and how to ask for reviews so customers actually leave them.',
+        date: '2026-06-11',
+        readTime: '5 min read',
+        content: [
+            { type: 'p', text: "Google's local search results favor businesses with more reviews, recent reviews, and higher average ratings — roughly in that order. The good news: getting more reviews isn't about convincing unhappy customers to change their mind. It's about making it effortless for happy customers to say so." },
+            { type: 'h2', text: 'Timing is everything' },
+            { type: 'p', text: "The best time to ask for a review is within minutes or hours of a positive interaction — right after a service is completed, a delivery is made, or a problem is resolved well. Wait a week and the moment (and the customer's motivation) is gone." },
+            { type: 'h2', text: 'Two ways to ask' },
+            { type: 'ul', items: [
+                'QR code at the point of contact — A printed QR code on a receipt, invoice, or business card that links straight to your Google review form. Zero typing for the customer.',
+                'A short list, sent automatically — For service businesses with a customer list (appointments, jobs completed), an automatic message after each job with a one-tap review link.',
+            ] },
+            { type: 'h2', text: 'Template: review request message' },
+            { type: 'quote', text: "Hi {name}, thanks for choosing {business}! If you have 30 seconds, a quick review helps other people find us — here's the link: {review_link}. Thank you!" },
+            { type: 'h2', text: 'Handle bounces and unsatisfied customers separately' },
+            { type: 'p', text: "Not every message lands — some emails bounce, some numbers are wrong. And not every customer is happy. A good review request flow should track both: bounced contacts (so you can fix your data) and customers who respond negatively to the request itself (so you can reach out before they post publicly, not after)." },
+            { type: 'h2', text: 'What "without being annoying" means in practice' },
+            { type: 'ul', items: [
+                "Ask once per visit/job, not every time someone walks in.",
+                "Never offer a discount or incentive in exchange for a review — Google's policies prohibit this, and it can get reviews removed.",
+                "Make opting out easy, and respect it.",
+            ] },
+            { type: 'h2', text: 'Automating the whole loop' },
+            { type: 'p', text: "Manually sending review requests works for the first ten customers. After that, it stops happening — not because it's not valuable, but because it's easy to forget. A Review Funnel automation handles the QR code or list-based requests, tracks scans, answers, bounces, and reviews left, and sends a weekly summary so you always know what's working." },
+        ],
+    },
+    {
+        slug: 'stop-losing-leads-after-first-message',
+        title: 'Why Most Small Businesses Lose Leads After the First Message (And How to Fix It)',
+        description: 'A lead that doesn\'t reply to your first message isn\'t a lost lead — yet. Here\'s the follow-up cadence that recovers them.',
+        date: '2026-06-11',
+        readTime: '6 min read',
+        content: [
+            { type: 'p', text: "Most leads don't say no. They just don't respond — and most businesses only send one message before moving on. The lead isn't gone; they're just buried. A simple follow-up sequence recovers a meaningful share of leads that would otherwise go cold, without any extra ad spend." },
+            { type: 'h2', text: 'Why one message isn\'t enough' },
+            { type: 'p', text: "People are busy, message at the wrong time, or simply forget to reply. A second or third message — spaced out and lightly varied — reaches people at a different moment, and gives them an easy reason to respond." },
+            { type: 'h2', text: 'A simple follow-up cadence' },
+            { type: 'ul', items: [
+                'Day 0 — Initial message: confirm receipt, set expectations for next steps.',
+                'Day 2–3 — First follow-up: short, friendly check-in. No new information needed.',
+                'Day 5–7 — Second follow-up: offer something useful (answer a common question, share availability).',
+                'Day 10–14 — Final follow-up: low-pressure, "still interested?" close — leaves the door open without nagging.',
+            ] },
+            { type: 'h2', text: 'Template: first follow-up' },
+            { type: 'quote', text: "Hi {name}, just following up on my last message — happy to answer any questions whenever you have a moment!" },
+            { type: 'h2', text: 'Template: second follow-up' },
+            { type: 'quote', text: "Hi {name}, wanted to check back in — a lot of people ask about {common question/topic}, so happy to walk through that if useful. Let me know!" },
+            { type: 'h2', text: 'Template: final follow-up' },
+            { type: 'quote', text: "Hi {name}, I don't want to keep filling your inbox — just let me know if you're still interested and I'm happy to pick this back up whenever works for you." },
+            { type: 'h2', text: 'The most important part: stopping at the right time' },
+            { type: 'p', text: 'A follow-up sequence only works if it stops the moment someone replies. Nothing damages trust faster than getting a "just checking in" message after you already responded. Any follow-up automation needs to detect replies and stop immediately — not just on a fixed schedule.' },
+            { type: 'h2', text: 'Automating it' },
+            { type: 'p', text: "Our Lead Follow-up automation sends this kind of sequence automatically, tracks how many emails go out, how many people reply, and stops the sequence the moment a lead responds — so no one gets a follow-up after they've already said yes (or no)." },
+        ],
+    },
+];
+
+export const getPostBySlug = (slug) => blogPosts.find((post) => post.slug === slug);

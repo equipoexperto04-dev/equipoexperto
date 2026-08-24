@@ -1,0 +1,1005 @@
+import bcrypt from 'bcrypt';
+import crypto from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
+import pool from '../db/pool.js';
+import { setJwtCookie, clearJwtCookie } from '../utils/cookieHelpers.js';
+import { signAccessToken } from '../utils/accessToken.js';
+import { enrichUserForClient, enrichUserForNewSignup } from '../utils/billingAccess.js';
+import { verifyFirebaseIdToken } from '../utils/firebaseAdmin.js';
+import { frontendBaseUrl } from '../utils/publicUrls.js';
+import { sendPlatformTransactionalMail } from '../services/contactFormMailService.js';
+
+// Create OAuth client lazily to ensure env vars are loaded
+const getGoogleClient = () => {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+        throw new Error('GOOGLE_CLIENT_ID not configured');
+    }
+    return new OAuth2Client(clientId);
+};
+
+const SALT_ROUNDS = 10; // Optimized for performance while maintaining high security
+
+const signToken = (user) => signAccessToken(user);
+
+const selectUserByEmailQuery = `
+    SELECT id, name, email, password_hash, company_name, phone, plan, role, status, created_at,
+           COALESCE(weekly_reports_enabled, TRUE) AS weekly_reports_enabled,
+           COALESCE(onboarding_completed, FALSE) AS onboarding_completed,
+           trial_ends_at, stripe_subscription_id, stripe_customer_id
+    FROM users
+    WHERE lower(email) = $1
+    LIMIT 1
+`;
+
+/**
+ * Validates if the email is a standard email address format
+ */
+const isValidEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email.toLowerCase().trim());
+};
+
+const isEmailVerificationRequired = () =>
+    String(process.env.AUTH_REQUIRE_EMAIL_VERIFICATION || '').trim().toLowerCase() === 'true';
+
+const sendMailErrorResponse = (res, err, fallbackMessage) => {
+    const code = err?.code || '';
+
+    if (code === 'SMTP_NOT_CONFIGURED') {
+        return res.status(503).json({
+            success: false,
+            message: 'Email delivery is not configured on the server.',
+        });
+    }
+
+    if (code === 'contact_sender_not_configured' || code === 'PLATFORM_GMAIL_NOT_CONFIGURED') {
+        return res.status(503).json({
+            success: false,
+            message: 'Email delivery is not configured on the server.',
+        });
+    }
+
+    if (
+        code === 'SMTP_TIMEOUT' ||
+        code === 'ETIMEDOUT' ||
+        code === 'ESOCKET' ||
+        code === 'PLATFORM_GMAIL_TIMEOUT' ||
+        code === 'GMAIL_API_TIMEOUT'
+    ) {
+        return res.status(504).json({
+            success: false,
+            message: 'Email delivery timed out. Please try again in a moment.',
+        });
+    }
+
+    if (code === 'EAUTH' || code === 'contact_gmail_scope') {
+        return res.status(502).json({
+            success: false,
+            message: 'Email provider authentication failed on the server.',
+        });
+    }
+
+    return res.status(500).json({
+        success: false,
+        message: fallbackMessage,
+    });
+};
+
+const sendAuthMail = async (mailOptions) => sendPlatformTransactionalMail(mailOptions);
+
+/**
+ * POST /auth/request-otp
+ * Body: { email }
+ */
+export const requestOTP = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email || !isValidEmail(email)) {
+            return res.status(400).json({
+                success: false,
+                message: 'A valid email address is required to create a professional account.'
+            });
+        }
+
+        const emailLower = email.toLowerCase().trim();
+
+        // Check if user already exists
+        const existing = await pool.query('SELECT id FROM users WHERE email = $1', [emailLower]);
+        if (existing.rows.length > 0) {
+            return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        await pool.query(
+            'INSERT INTO otp_verifications (email, otp_code, expires_at) VALUES ($1, $2, $3)',
+            [emailLower, otp, expiresAt]
+        );
+
+        const mailOptions = {
+            from: 'Equipo Experto Support',
+            to: emailLower,
+            subject: 'Verify your email - Equipo Experto',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e1e1e1; border-radius: 10px;">
+                    <h2 style="color: #4f46e5; text-align: center;">Welcome to Equipo Experto</h2>
+                    <p>To ensure you follow the professional standard, please use the following verification code to complete your registration:</p>
+                    <div style="background: #f3f4f6; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+                        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #111827;">${otp}</span>
+                    </div>
+                    <p style="color: #6b7280; font-size: 14px;">This code will expire in 10 minutes. If you did not request this, please ignore this email.</p>
+                </div>
+            `
+        };
+
+        await sendAuthMail(mailOptions);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Verification code sent to your email.'
+        });
+    } catch (err) {
+        console.error('[requestOTP] Error:', err.code || err.message);
+        return sendMailErrorResponse(
+            res,
+            err,
+            'Failed to send verification email. Please ensure your email settings are correct.'
+        );
+    }
+};
+
+/**
+ * POST /auth/register
+ * Body: { name, email, password, company_name, otp }
+ */
+export const register = async (req, res) => {
+    try {
+        const { name, email, password, company_name, otp } = req.body;
+        const emailVerificationRequired = isEmailVerificationRequired();
+
+        if (!name || !email || !password || !company_name) {
+            return res.status(400).json({ success: false, message: 'All fields are required.' });
+        }
+
+        const emailLower = email.toLowerCase().trim();
+
+        if (!isValidEmail(emailLower)) {
+            return res.status(400).json({ success: false, message: 'A valid email address is required.' });
+        }
+
+        if (String(password).length < 8) {
+            return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long.' });
+        }
+
+        if (emailVerificationRequired) {
+            if (!otp) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'A verification code is required to complete registration.',
+                });
+            }
+
+            const otpResult = await pool.query(
+                'SELECT id FROM otp_verifications WHERE email = $1 AND otp_code = $2 AND expires_at > NOW()',
+                [emailLower, otp]
+            );
+
+            if (otpResult.rows.length === 0) {
+                return res.status(400).json({ success: false, message: 'Invalid or expired verification code.' });
+            }
+        }
+
+        // Check if email already registered (race condition check)
+        const checkDupe = await pool.query('SELECT id FROM users WHERE email = $1', [emailLower]);
+        if (checkDupe.rows.length > 0) {
+            return res.status(409).json({ success: false, message: 'Account already exists.' });
+        }
+
+        const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
+
+        const result = await pool.query(
+            `INSERT INTO users (name, email, password_hash, company_name, trial_ends_at)
+             VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP + INTERVAL '30 days')
+             RETURNING id, name, email, company_name, plan, role, created_at, weekly_reports_enabled, onboarding_completed,
+                       trial_ends_at, stripe_subscription_id, stripe_customer_id`,
+            [name.trim(), emailLower, password_hash, company_name.trim()]
+        );
+
+        const newUser = result.rows[0];
+
+        if (emailVerificationRequired) {
+            await pool.query('DELETE FROM otp_verifications WHERE email = $1', [emailLower]);
+        }
+
+        await pool.query(
+            'INSERT INTO password_history (user_id, password_hash) VALUES ($1, $2)',
+            [newUser.id, password_hash]
+        );
+
+        const token = signToken(newUser);
+        
+        // Set HttpOnly cookie (new secure way)
+        setJwtCookie(res, token);
+
+        return res.status(201).json({
+            success: true,
+            message: emailVerificationRequired
+                ? 'Account verified and created successfully. Connect Google in Dashboard → Integrations to send emails from the same Gmail you used to sign up (you can switch to Microsoft or SMTP later).'
+                : 'Account created successfully. Connect Google in Dashboard → Integrations to send emails from the same Gmail you used to sign up (you can switch to Microsoft or SMTP later).',
+            user: enrichUserForNewSignup(newUser),
+        });
+    } catch (err) {
+        console.error('[register] Error:', err.message);
+        return res.status(500).json({ success: false, message: 'Server error during registration.' });
+    }
+};
+
+/**
+ * POST /auth/login
+ * Body: { email, password }
+ */
+export const login = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        // ── Validation ──────────────────────────────
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email and password are required.',
+            });
+        }
+
+        // ── Fetch user ───────────────────────────────
+        let result;
+        try {
+            result = await pool.query(
+                `SELECT id, name, email, password_hash, company_name, phone, plan, role, status, created_at, weekly_reports_enabled,
+                        trial_ends_at, stripe_subscription_id, stripe_customer_id
+                 FROM users WHERE email = $1`,
+                [email.toLowerCase().trim()]
+            );
+        } catch (e) {
+            if (e.code !== '42703') throw e; // undefined_column — column not yet migrated
+            result = await pool.query(
+                `SELECT id, name, email, password_hash, company_name, phone, plan, role, status, created_at
+                 FROM users WHERE email = $1`,
+                [email.toLowerCase().trim()]
+            );
+            result.rows = result.rows.map(r => ({ ...r, weekly_reports_enabled: true }));
+        }
+
+        if (result.rows.length === 0) {
+            // Generic message — don't reveal whether email exists
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password.',
+            });
+        }
+
+        const user = result.rows[0];
+
+        // ── Check account status ─────────────────────
+        if (user.status !== 'active') {
+            return res.status(403).json({
+                success: false,
+                message: 'Your account has been deactivated. Please contact support.',
+            });
+        }
+
+        // ── Verify password ──────────────────────────
+        const isMatch = await bcrypt.compare(password, user.password_hash);
+        if (!isMatch) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password.',
+            });
+        }
+
+        const token = signToken(user);
+
+        // Strip sensitive fields before responding
+        const { password_hash: _, ...safeUser } = user;
+        
+        // Set HttpOnly cookie (new secure way)
+        setJwtCookie(res, token);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Login successful.',
+            user: enrichUserForClient(safeUser),
+        });
+    } catch (err) {
+        console.error('[login] Error:', err.message);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error. Please try again later.',
+        });
+    }
+};
+
+/**
+ * GET /auth/profile
+ * Requires: Bearer token in Authorization header
+ */
+export const getProfile = async (req, res) => {
+    try {
+        console.log('[getProfile] Fetching for user id:', req.user?.id);
+        const result = await pool.query(
+            `SELECT id, name, email, company_name, phone, plan, role, status, created_at, weekly_reports_enabled, onboarding_completed,
+                    trial_ends_at, stripe_subscription_id, stripe_customer_id
+             FROM users
+             WHERE id = $1`,
+            [req.user.id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'User account no longer exists.',
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            user: enrichUserForClient(result.rows[0]),
+        });
+    } catch (err) {
+        console.error('[getProfile] CRITICAL:', err.message, err.stack);
+        return res.status(500).json({
+            success: false,
+            message: 'Server sync error. Please try again later.',
+        });
+    }
+};
+
+/**
+ * PUT /auth/profile
+ * Body: { company_name, email, phone }
+ */
+export const updateProfile = async (req, res) => {
+    try {
+        const { company_name, email, phone, weekly_reports_enabled, onboarding_completed } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ success: false, message: 'Email is required.' });
+        }
+
+        // Validate phone number format if provided
+        if (phone && !/^[+\d][\d\s\-().]{0,24}$/.test(phone.trim())) {
+            return res.status(400).json({ success: false, message: 'Invalid phone number format. Please use digits, spaces, hyphens or parentheses only.' });
+        }
+
+        // Check if new email is taken by another user
+        const existing = await pool.query(
+            'SELECT id FROM users WHERE email = $1 AND id != $2',
+            [email.toLowerCase().trim(), req.user.id]
+        );
+
+        if (existing.rows.length > 0) {
+            return res.status(409).json({ success: false, message: 'Email address is already in use.' });
+        }
+
+        const result = await pool.query(
+            `UPDATE users
+             SET company_name = $1, email = $2, phone = $3, weekly_reports_enabled = $4, onboarding_completed = COALESCE($5, onboarding_completed), updated_at = NOW()
+             WHERE id = $6
+             RETURNING id, name, email, company_name, phone, plan, role, status, created_at, weekly_reports_enabled, onboarding_completed,
+                       trial_ends_at, stripe_subscription_id, stripe_customer_id`,
+            [
+                company_name ? company_name.trim() : null,
+                email.toLowerCase().trim(),
+                phone ? phone.trim() : null,
+                weekly_reports_enabled !== undefined ? weekly_reports_enabled : true,
+                onboarding_completed !== undefined ? onboarding_completed : null,
+                req.user.id
+            ]
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: 'Profile updated successfully.',
+            user: enrichUserForClient(result.rows[0]),
+        });
+    } catch (err) {
+        console.error('[updateProfile] Error:', err.message);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error. Please try again later.',
+        });
+    }
+};
+
+/**
+ * PUT /auth/password
+ * Body: { currentPassword, newPassword }
+ */
+export const updatePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ success: false, message: 'Current and new passwords are required.' });
+        }
+
+        if (newPassword.length < 8) {
+            return res.status(400).json({ success: false, message: 'New password must be at least 8 characters long.' });
+        }
+
+        // Fetch current password hash
+        const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+
+        const isMatch = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: 'Incorrect current password.' });
+        }
+
+        // Check password history
+        const history = await pool.query('SELECT password_hash FROM password_history WHERE user_id = $1', [req.user.id]);
+        for (const row of history.rows) {
+            const isUsedMatch = await bcrypt.compare(newPassword, row.password_hash);
+            if (isUsedMatch) {
+                return res.status(400).json({ success: false, message: 'You cannot use a previously used password.' });
+            }
+        }
+
+        const password_hash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+        await pool.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [password_hash, req.user.id]);
+
+        // Add to history
+        await pool.query(
+            'INSERT INTO password_history (user_id, password_hash) VALUES ($1, $2)',
+            [req.user.id, password_hash]
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: 'Password changed successfully.',
+        });
+    } catch (err) {
+        console.error('[updatePassword] Error:', err.message);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error. Please try again later.',
+        });
+    }
+};
+
+/**
+ * POST /auth/forgot-password
+ * Body: { email }
+ */
+export const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email || !isValidEmail(email)) {
+            return res.status(400).json({ success: false, message: 'A valid email address is required.' });
+        }
+
+        const emailLower = email.toLowerCase().trim();
+        const result = await pool.query('SELECT id, name FROM users WHERE email = $1', [emailLower]);
+
+        if (result.rows.length === 0) {
+            return res.status(200).json({
+                success: true,
+                message: 'If this email is registered, a password reset link has been sent.',
+            });
+        }
+
+        const user = result.rows[0];
+
+        // Generate a short-lived token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+        const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+        await pool.query('DELETE FROM password_resets WHERE user_id = $1 AND used = FALSE', [user.id]);
+
+        await pool.query(
+            'INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+            [user.id, tokenHash, expiresAt]
+        );
+
+        const frontendUrl = frontendBaseUrl() || 'http://localhost:5173';
+        const resetLink = `${frontendUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
+
+        const mailOptions = {
+            from: 'Equipo Experto Support',
+            to: emailLower,
+            subject: 'Reset your Equipo Experto password',
+            text:
+                `Hello ${user.name},\n\n` +
+                `We received a request to reset your Equipo Experto password.\n\n` +
+                `Open this link to set a new password:\n${resetLink}\n\n` +
+                `This link expires in 30 minutes. If you did not request this, you can ignore this email.`,
+            html: `
+                <div style="font-family: Inter, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px; overflow: hidden;">
+                    <div style="padding: 24px 24px 12px; text-align: center; background: #0f172a;">
+                        <img src="https://equipoexperto.com/equipoexperto.jpg" alt="Equipo Experto" style="height: 48px; width: auto; border-radius: 8px;" />
+                    </div>
+                    <div style="padding: 32px 24px;">
+                        <h1 style="margin: 0 0 16px; font-size: 24px; line-height: 1.2; color: #0f172a;">Reset your password</h1>
+                        <p style="margin: 0 0 16px; color: #334155; font-size: 15px;">Hello ${user.name},</p>
+                        <p style="margin: 0 0 24px; color: #334155; font-size: 15px; line-height: 1.6;">
+                            We received a request to reset your Equipo Experto password. Click the button below to open the secure reset page and choose a new password.
+                        </p>
+                        <div style="text-align: center; margin: 32px 0;">
+                            <a href="${resetLink}" style="display: inline-block; background: #111827; color: #ffffff; padding: 14px 24px; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 15px;">
+                                Reset Password
+                            </a>
+                        </div>
+                        <p style="margin: 0 0 12px; color: #475569; font-size: 14px; line-height: 1.6;">
+                            This link expires in <strong>30 minutes</strong>.
+                        </p>
+                        <p style="margin: 0 0 12px; color: #475569; font-size: 14px; line-height: 1.6;">
+                            If the button does not open, copy and paste this URL into your browser:
+                        </p>
+                        <p style="margin: 0 0 24px; word-break: break-all; color: #2563eb; font-size: 13px; line-height: 1.6;">
+                            <a href="${resetLink}" style="color: #2563eb; text-decoration: underline;">${resetLink}</a>
+                        </p>
+                        <p style="margin: 0; color: #64748b; font-size: 13px; line-height: 1.6;">
+                            If you did not request this, you can ignore this email. Your current password will continue to work.
+                        </p>
+                    </div>
+                </div>
+            `
+        };
+
+        await sendAuthMail(mailOptions);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Password reset email sent. Check your inbox.'
+        });
+    } catch (err) {
+        console.error('[forgotPassword] Error:', err.code || err.message);
+        return sendMailErrorResponse(
+            res,
+            err,
+            'Failed to send reset email. Please try again later.'
+        );
+    }
+};
+
+/**
+ * POST /auth/reset-password
+ * Body: { token, newPassword }
+ */
+export const resetPassword = async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+
+        if (!token || !newPassword) {
+            return res.status(400).json({ success: false, message: 'Token and new password are required.' });
+        }
+
+        if (newPassword.length < 8) {
+            return res.status(400).json({ success: false, message: 'New password must be at least 8 characters long.' });
+        }
+
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+        // Find token
+        const result = await pool.query(
+            'SELECT id, user_id, expires_at, used FROM password_resets WHERE token_hash = $1',
+            [tokenHash]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(400).json({ success: false, message: 'Invalid or expired token.' });
+        }
+
+        const resetRecord = result.rows[0];
+
+        if (resetRecord.used) {
+            return res.status(400).json({ success: false, message: 'This reset token has already been used.' });
+        }
+
+        if (new Date() > new Date(resetRecord.expires_at)) {
+            return res.status(400).json({ success: false, message: 'This reset token has expired.' });
+        }
+
+        const userId = resetRecord.user_id;
+
+        // Check password history
+        const history = await pool.query('SELECT password_hash FROM password_history WHERE user_id = $1', [userId]);
+        for (const row of history.rows) {
+            const isUsedMatch = await bcrypt.compare(newPassword, row.password_hash);
+            if (isUsedMatch) {
+                return res.status(400).json({ success: false, message: 'You cannot use a previously used password.' });
+            }
+        }
+
+        // Hash new password and update
+        const password_hash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+        await pool.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [password_hash, userId]);
+
+        // Add to history
+        await pool.query(
+            'INSERT INTO password_history (user_id, password_hash) VALUES ($1, $2)',
+            [userId, password_hash]
+        );
+
+        // Mark token as used
+        await pool.query('UPDATE password_resets SET used = TRUE WHERE id = $1', [resetRecord.id]);
+
+        return res.status(200).json({ success: true, message: 'Password has been successfully updated.' });
+    } catch (err) {
+        console.error('[resetPassword] Error:', err.message);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error. Please try again later.',
+        });
+    }
+};
+
+/**
+ * GET /auth/verify-reset-token/:token
+ */
+export const verifyResetToken = async (req, res) => {
+    try {
+        const { token } = req.params;
+        if (!token) {
+            return res.status(400).json({ success: false, message: 'Token is required.' });
+        }
+
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+        const result = await pool.query(
+            'SELECT expires_at, used FROM password_resets WHERE token_hash = $1',
+            [tokenHash]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(400).json({ success: false, message: 'Invalid or expired token.' });
+        }
+
+        const resetRecord = result.rows[0];
+
+        if (resetRecord.used) {
+            return res.status(400).json({ success: false, message: 'This reset token has already been used.' });
+        }
+
+        if (new Date() > new Date(resetRecord.expires_at)) {
+            return res.status(400).json({ success: false, message: 'This reset token has expired.' });
+        }
+
+        return res.status(200).json({ success: true, message: 'Token is valid.' });
+    } catch (err) {
+        console.error('[verifyResetToken] Error:', err.message);
+        return res.status(500).json({ success: false, message: 'Server error.' });
+    }
+};
+
+/**
+ * POST /auth/google
+ * Body: { access_token } — OAuth2 access token from useGoogleLogin hook
+ * Verifies via Google's userinfo API (no client ID dependency on the server).
+ */
+export const googleLogin = async (req, res) => {
+    try {
+        if (!process.env.JWT_SECRET?.trim()) {
+            console.error('[googleLogin] JWT_SECRET is not set on the server');
+            return res.status(503).json({
+                success: false,
+                message: 'Server authentication is not configured. Set JWT_SECRET in Render environment variables.',
+            });
+        }
+
+        const { access_token } = req.body;
+
+        if (!access_token) {
+            return res.status(400).json({ success: false, message: 'Google access token is required.' });
+        }
+
+        // Fetch user info from Google
+        let googleUser;
+        try {
+            const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+                headers: { Authorization: `Bearer ${access_token}` },
+            });
+            if (!userInfoRes.ok) {
+                throw new Error(`Google API returned ${userInfoRes.status}`);
+            }
+            googleUser = await userInfoRes.json();
+        } catch (fetchErr) {
+            console.error('[googleLogin] Google userinfo fetch failed:', fetchErr.message);
+            return res.status(401).json({ success: false, message: 'Google token is invalid or expired. Please try signing in again.' });
+        }
+
+        if (!googleUser.email || !googleUser.verified_email) {
+            return res.status(401).json({ success: false, message: 'Google account email is not verified.' });
+        }
+
+        const emailLower = googleUser.email.toLowerCase().trim();
+        const name = googleUser.name || emailLower.split('@')[0];
+
+        const existingUser = await pool.query('SELECT id FROM users WHERE lower(email) = $1 LIMIT 1', [emailLower]);
+        let isNewUser = existingUser.rows.length === 0;
+
+        if (isNewUser) {
+            try {
+                await pool.query(
+                    `INSERT INTO users (name, email, password_hash, company_name, trial_ends_at)
+                     VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP + INTERVAL '30 days')`,
+                    [name, emailLower, '', '']
+                );
+            } catch (insertErr) {
+                // A concurrent login may have created the same Google account first.
+                if (insertErr.code !== '23505') throw insertErr;
+                isNewUser = false;
+            }
+        }
+
+        // Now fetch the full user row (always present after upsert)
+        let result;
+        try {
+            result = await pool.query(
+                `SELECT id, name, email, company_name, phone, plan, role, status,
+                        COALESCE(weekly_reports_enabled, TRUE) AS weekly_reports_enabled,
+                        COALESCE(onboarding_completed, FALSE) AS onboarding_completed,
+                        trial_ends_at, stripe_subscription_id, stripe_customer_id
+                 FROM users WHERE lower(email) = $1
+                 LIMIT 1`,
+                [emailLower]
+            );
+        } catch (e) {
+            if (e.code !== '42703') throw e; // undefined_column — column not yet migrated
+            result = await pool.query(
+                `SELECT id, name, email, company_name, phone, plan, role, status,
+                        trial_ends_at, stripe_subscription_id, stripe_customer_id
+                 FROM users WHERE lower(email) = $1
+                 LIMIT 1`,
+                [emailLower]
+            );
+            result.rows = result.rows.map(r => ({
+                ...r,
+                weekly_reports_enabled: true,
+                trial_ends_at: r.trial_ends_at ?? null,
+            }));
+        }
+
+        if (result.rows.length === 0) {
+            console.error('[googleLogin] User not found after upsert:', emailLower);
+            return res.status(500).json({ success: false, message: 'Failed to retrieve account. Please try again.' });
+        }
+
+        const user = result.rows[0];
+
+        if (user.status !== 'active') {
+            return res.status(403).json({ success: false, message: 'Your account is deactivated. Please contact support.' });
+        }
+
+        const token = signToken(user);
+        setJwtCookie(res, token);
+
+        return res.status(200).json({
+            success: true,
+            message: isNewUser
+                ? 'Google sign-in successful. Connect Gmail once under Dashboard → Integrations if you still need it for sending outbound mail.'
+                : 'Google sign-in successful.',
+            user: isNewUser ? enrichUserForNewSignup(user) : enrichUserForClient(user),
+            isNewUser,
+        });
+    } catch (err) {
+        console.error('[googleLogin] Unexpected error:', err.message, err.code, err.stack?.split('\n').slice(0, 4).join(' | '));
+
+        if (err.code === '42P01') {
+            return res.status(503).json({
+                success: false,
+                message: 'Database is not initialized. Redeploy the latest API or run npm run db:init against production DATABASE_URL.',
+            });
+        }
+        if (err.message?.includes('JWT_SECRET')) {
+            return res.status(503).json({
+                success: false,
+                message: 'Server authentication is not configured. Set JWT_SECRET in Render environment variables.',
+            });
+        }
+
+        return res.status(500).json({
+            success: false,
+            message: 'An unexpected error occurred during Google sign-in. Please try again.',
+        });
+    }
+};
+
+/**
+ * POST /auth/firebase
+ * Body: { idToken, createIfMissing?, profile?: { name, company_name } }
+ */
+export const firebaseSessionLogin = async (req, res) => {
+    try {
+        const { idToken, createIfMissing = false, profile } = req.body || {};
+
+        if (!idToken || typeof idToken !== 'string') {
+            return res.status(400).json({ success: false, message: 'Firebase ID token is required.' });
+        }
+
+        const decoded = await verifyFirebaseIdToken(idToken);
+        const emailLower = decoded.email?.toLowerCase().trim();
+
+        if (!emailLower) {
+            return res.status(400).json({ success: false, message: 'Firebase account email is unavailable.' });
+        }
+
+        let result;
+        try {
+            result = await pool.query(selectUserByEmailQuery, [emailLower]);
+        } catch (e) {
+            if (e.code !== '42703') throw e;
+            result = await pool.query(
+                `SELECT id, name, email, password_hash, company_name, phone, plan, role, status, created_at,
+                        trial_ends_at, stripe_subscription_id, stripe_customer_id
+                 FROM users
+                 WHERE lower(email) = $1
+                 LIMIT 1`,
+                [emailLower]
+            );
+            result.rows = result.rows.map((row) => ({
+                ...row,
+                weekly_reports_enabled: true,
+                onboarding_completed: false,
+            }));
+        }
+
+        let user = result.rows[0];
+        let isNewUser = false;
+
+        if (!user) {
+            if (!createIfMissing) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'No account exists for this email. Sign up first.',
+                });
+            }
+
+            const displayName =
+                typeof profile?.name === 'string' && profile.name.trim()
+                    ? profile.name.trim()
+                    : typeof decoded.name === 'string' && decoded.name.trim()
+                      ? decoded.name.trim()
+                      : emailLower.split('@')[0];
+            const companyName =
+                typeof profile?.company_name === 'string' ? profile.company_name.trim() : '';
+
+            const insertResult = await pool.query(
+                `INSERT INTO users (name, email, password_hash, company_name, trial_ends_at)
+                 VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP + INTERVAL '30 days')
+                 RETURNING id, name, email, password_hash, company_name, phone, plan, role, status, created_at,
+                           COALESCE(weekly_reports_enabled, TRUE) AS weekly_reports_enabled,
+                           COALESCE(onboarding_completed, FALSE) AS onboarding_completed,
+                           trial_ends_at, stripe_subscription_id, stripe_customer_id`,
+                [displayName, emailLower, '', companyName]
+            );
+
+            user = insertResult.rows[0];
+            isNewUser = true;
+        } else if (
+            (typeof profile?.name === 'string' && profile.name.trim() && !user.name) ||
+            (typeof profile?.company_name === 'string' && profile.company_name.trim() && !user.company_name)
+        ) {
+            const patched = await pool.query(
+                `UPDATE users
+                 SET name = COALESCE(NULLIF($1, ''), name),
+                     company_name = COALESCE(NULLIF($2, ''), company_name),
+                     updated_at = NOW()
+                 WHERE id = $3
+                 RETURNING id, name, email, password_hash, company_name, phone, plan, role, status, created_at,
+                           COALESCE(weekly_reports_enabled, TRUE) AS weekly_reports_enabled,
+                           COALESCE(onboarding_completed, FALSE) AS onboarding_completed,
+                           trial_ends_at, stripe_subscription_id, stripe_customer_id`,
+                [
+                    typeof profile?.name === 'string' ? profile.name.trim() : '',
+                    typeof profile?.company_name === 'string' ? profile.company_name.trim() : '',
+                    user.id,
+                ]
+            );
+            user = patched.rows[0] || user;
+        }
+
+        if (user.status !== 'active') {
+            return res.status(403).json({
+                success: false,
+                message: 'Your account is deactivated. Please contact support.',
+            });
+        }
+
+        const token = signToken(user);
+        setJwtCookie(res, token);
+
+        return res.status(200).json({
+            success: true,
+            message: isNewUser ? 'Firebase sign-up successful.' : 'Firebase sign-in successful.',
+            user: isNewUser ? enrichUserForNewSignup(user) : enrichUserForClient(user),
+            isNewUser,
+        });
+    } catch (err) {
+        console.error('[firebaseSessionLogin] Error:', err.message);
+        return res.status(401).json({
+            success: false,
+            message: 'Firebase authentication failed. Verify the Firebase project configuration on both frontend and backend.',
+        });
+    }
+};
+
+/**
+ * PUT /auth/plan
+ * Body: { plan }
+ */
+export const updatePlan = async (req, res) => {
+    try {
+        const { plan } = req.body;
+        const validPlans = ['free', 'Growth', 'Pro'];
+        
+        if (!plan || !validPlans.includes(plan)) {
+            return res.status(400).json({ success: false, message: 'Invalid plan selected.' });
+        }
+
+        const result = await pool.query(
+            `UPDATE users SET plan = $1, trial_ends_at = NULL, updated_at = NOW()
+             WHERE id = $2
+             RETURNING id, name, email, company_name, phone, plan, role, status, weekly_reports_enabled, trial_ends_at,
+                       stripe_subscription_id, stripe_customer_id`,
+            [plan, req.user.id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        const updatedUser = result.rows[0];
+        const token = signToken(updatedUser);
+        setJwtCookie(res, token);
+
+        return res.status(200).json({
+            success: true,
+            message: `Plan upgraded to ${plan} successfully!`,
+            user: enrichUserForClient(updatedUser),
+        });
+    } catch (err) {
+        console.error('[updatePlan] Error:', err.message);
+        return res.status(500).json({ success: false, message: 'Server error. Please try again later.' });
+    }
+};
+
+/**
+ * DELETE /auth/account
+ * Permanently deletes the authenticated user and all their data.
+ */
+export const deleteAccount = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Delete in dependency order to satisfy foreign key constraints
+        await pool.query('DELETE FROM activity_logs WHERE user_id = $1', [userId]);
+        await pool.query('DELETE FROM leads WHERE user_id = $1', [userId]);
+        await pool.query('DELETE FROM feedback WHERE user_id = $1', [userId]);
+        await pool.query('DELETE FROM integrations WHERE user_id = $1', [userId]);
+        await pool.query('DELETE FROM review_funnel_settings WHERE user_id = $1', [userId]);
+        await pool.query('DELETE FROM lead_followup_settings WHERE user_id = $1', [userId]);
+        await pool.query('DELETE FROM smtp_settings WHERE user_id = $1', [userId]);
+        await pool.query('DELETE FROM password_history WHERE user_id = $1', [userId]);
+        await pool.query('DELETE FROM password_resets WHERE user_id = $1', [userId]);
+        await pool.query('DELETE FROM otp_verifications WHERE email = (SELECT email FROM users WHERE id = $1)', [userId]);
+
+        // Finally delete the user
+        const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id', [userId]);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ success: false, message: 'Account not found.' });
+        }
+
+        clearJwtCookie(res);
+
+        return res.status(200).json({ success: true, message: 'Account permanently deleted.' });
+    } catch (err) {
+        console.error('[deleteAccount] Error:', err.message);
+        return res.status(500).json({ success: false, message: 'Failed to delete account. Please try again.' });
+    }
+};

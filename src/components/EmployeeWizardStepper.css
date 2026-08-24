@@ -1,0 +1,93 @@
+.ew-stepper {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.ew-stepper-track {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.25rem;
+}
+
+.ew-stepper-item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ew-stepper-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.ew-stepper-line {
+  flex: 1;
+  height: 2px;
+  background: var(--border-color);
+  transition: background 0.25s ease;
+}
+
+.ew-stepper-line.is-filled {
+  background: var(--accent-color);
+}
+
+.ew-stepper-dot {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: all 0.25s ease;
+}
+
+.ew-stepper-dot.is-active {
+  color: #fff;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-color) 25%, transparent);
+}
+
+.ew-stepper-dot.is-done {
+  color: #fff;
+}
+
+.ew-stepper-labels {
+  margin-top: 0.65rem;
+  text-align: center;
+  padding: 0 0.25rem;
+}
+
+.ew-stepper-title {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+.ew-stepper-title.is-active {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.ew-stepper-desc {
+  margin: 0.15rem 0 0;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  line-height: 1.2;
+}
+
+@media (max-width: 520px) {
+  .ew-stepper-desc {
+    display: none;
+  }
+}

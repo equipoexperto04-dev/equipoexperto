@@ -1,0 +1,39 @@
+{
+    "name": "montseaumate-api",
+    "version": "1.0.0",
+    "description": "Backend API for MontseaumateII SaaS platform",
+    "type": "module",
+    "main": "src/index.js",
+    "scripts": {
+        "dev": "node --watch src/index.js",
+        "start": "node src/index.js",
+        "db:init": "node src/db/init.js",
+        "db:migrate": "node scripts/apply-migrations.js"
+    },
+    "dependencies": {
+        "@whiskeysockets/baileys": "^6.7.21",
+        "axios": "^1.15.2",
+        "bcrypt": "^5.1.1",
+        "better-sqlite3": "^12.6.2",
+        "cookie-parser": "^1.4.7",
+        "cors": "^2.8.5",
+        "csurf": "^1.11.0",
+        "dompurify": "^3.4.0",
+        "dotenv": "^16.4.7",
+        "express": "^4.21.2",
+        "express-rate-limit": "^7.5.0",
+        "firebase-admin": "^13.10.0",
+        "google-auth-library": "^10.6.1",
+        "jsdom": "^29.0.2",
+        "jsonwebtoken": "^9.0.2",
+        "multer": "^2.1.1",
+        "node-cron": "^3.0.3",
+        "node-fetch": "^3.3.2",
+        "nodemailer": "^6.9.7",
+        "pdfkit": "^0.19.0",
+        "pg": "^8.11.3",
+        "pino": "^9.14.0",
+        "qrcode": "^1.5.3",
+        "stripe": "^18.5.0"
+    }
+}

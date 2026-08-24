@@ -1,0 +1,112 @@
+/**
+ * Public funnel pages (/l/, /r/, /f/) always use a light palette.
+ * Visitors may have dashboard dark mode saved in localStorage — without this,
+ * labels and headings become near-invisible on the white form card.
+ */
+.public-funnel-page {
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --input-bg: #ffffff;
+  --border-color: #e2e8f0;
+  --accent-color: #0369a1;
+  --accent-hover: #0284c7;
+  --bg-card: #ffffff;
+  --bg-primary: #f8fafc;
+  --danger: #dc2626;
+  color: #0f172a;
+}
+
+.public-funnel-page .public-funnel-card {
+  background-color: #fff;
+  border-radius: 20px;
+  box-shadow: 0 4px 32px rgba(15, 23, 42, 0.08);
+  padding: 1.75rem;
+  border: 1px solid #e8ecf0;
+}
+
+.public-funnel-page .public-funnel-title {
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+  margin: 0 0 0.375rem;
+}
+
+.public-funnel-page .public-funnel-subtitle {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.public-funnel-page .public-funnel-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.public-funnel-page .public-funnel-muted {
+  color: #64748b;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.public-funnel-page .public-funnel-footnote {
+  margin-top: 1rem;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.public-funnel-page .public-funnel-powered {
+  text-align: center;
+  margin-top: 1.5rem;
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+
+.public-funnel-page .input-field {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+}
+
+.public-funnel-page .input-field::placeholder {
+  color: #94a3b8;
+}
+
+.public-funnel-page .input-field:focus {
+  border-color: #0369a1;
+  box-shadow: 0 0 0 3px rgba(3, 105, 161, 0.12);
+}
+
+.public-funnel-page .react-tel-input .form-control {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.public-funnel-page .react-tel-input .form-control:focus {
+  border-color: #0369a1 !important;
+  box-shadow: 0 0 0 3px rgba(3, 105, 161, 0.12) !important;
+}
+
+.public-funnel-page .react-tel-input .flag-dropdown,
+.public-funnel-page .react-tel-input .selected-flag {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+.public-funnel-page .react-tel-input .country-list {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.public-funnel-page .react-tel-input .country-list .country:hover,
+.public-funnel-page .react-tel-input .country-list .country.highlight {
+  background: #f1f5f9 !important;
+}

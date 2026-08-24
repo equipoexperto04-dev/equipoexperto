@@ -1,0 +1,5 @@
+# Hashed bundles — listed before SPA fallback (Cloudflare serves real files first when present).
+/assets/*  /assets/:splat  200
+
+# SPA client-side routes (only when no static file matches)
+/*  /index.html  200
