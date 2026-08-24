@@ -87,9 +87,9 @@ projects:
         sync: false
       - key: APIFY_API_TOKEN
         sync: false
-      - key: VERCEL_MAILER_URL
+      - key: MAILER_RELAY_URL
         sync: false
-      - key: VERCEL_MAILER_SECRET
+      - key: MAILER_RELAY_SECRET
         sync: false
       - key: .env
         sync: false

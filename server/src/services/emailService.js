@@ -365,13 +365,13 @@ export const sendDynamicEmail = async (userId, mailOptions, options = {}) => {
 
             const finalMailOptions = { ...mailOptions, from: mailOptions.from || finalFrom };
 
-            if (process.env.VERCEL_MAILER_URL && process.env.VERCEL_MAILER_SECRET) {
+            if (process.env.MAILER_RELAY_URL && process.env.MAILER_RELAY_SECRET) {
                 // Route SMTP via Vercel Relay
-                const response = await fetch(process.env.VERCEL_MAILER_URL, {
+                const response = await fetch(process.env.MAILER_RELAY_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        secretToken: process.env.VERCEL_MAILER_SECRET,
+                        secretToken: process.env.MAILER_RELAY_SECRET,
                         smtpConfig: {
                             host: config.host,
                             port: config.port,
@@ -539,7 +539,7 @@ export const testSmtpConnection = async (config) => {
 async function _doSmtpTest(config) {
     const normalizedConfig = normalizeSmtpConfig(config);
 
-    if (process.env.VERCEL_MAILER_URL && process.env.VERCEL_MAILER_SECRET) {
+    if (process.env.MAILER_RELAY_URL && process.env.MAILER_RELAY_SECRET) {
         // Route Test SMTP verification through Vercel
         try {
             const recipient = String(config.testRecipient || normalizedConfig.auth_user).trim();
@@ -566,11 +566,11 @@ async function _doSmtpTest(config) {
                     `</div>`,
             };
 
-            const response = await fetch(process.env.VERCEL_MAILER_URL, {
+            const response = await fetch(process.env.MAILER_RELAY_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    secretToken: process.env.VERCEL_MAILER_SECRET,
+                    secretToken: process.env.MAILER_RELAY_SECRET,
                     smtpConfig: {
                         host: normalizedConfig.host,
                         port: normalizedConfig.port,

@@ -105,13 +105,13 @@ async function sendWithTransporter(bundle, mailOptions) {
         ? `"${mailOptions.from}" <${bundle.fromAddress}>`
         : bundle.fromAddress;
 
-    if (process.env.VERCEL_MAILER_URL && process.env.VERCEL_MAILER_SECRET) {
+    if (process.env.MAILER_RELAY_URL && process.env.MAILER_RELAY_SECRET) {
         // Route support/alert SMTP through Vercel
-        const response = await fetch(process.env.VERCEL_MAILER_URL, {
+        const response = await fetch(process.env.MAILER_RELAY_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                secretToken: process.env.VERCEL_MAILER_SECRET,
+                secretToken: process.env.MAILER_RELAY_SECRET,
                 smtpConfig: {
                     host: bundle.host,
                     port: bundle.port,

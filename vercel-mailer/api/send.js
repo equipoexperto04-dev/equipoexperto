@@ -22,7 +22,7 @@ export default async function handler(req, res) {
         const { smtpConfig, mailOptions, secretToken } = req.body;
 
         // 2. Authenticate Request
-        const systemSecret = process.env.VERCEL_MAILER_SECRET;
+        const systemSecret = process.env.MAILER_RELAY_SECRET;
         if (!systemSecret || secretToken !== systemSecret) {
             return res.status(401).json({ success: false, error: 'Unauthorized: Invalid secretToken' });
         }
