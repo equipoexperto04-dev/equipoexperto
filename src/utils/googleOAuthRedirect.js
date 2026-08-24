@@ -68,12 +68,13 @@ function parseBroadcastPayload(ev) {
     }
 }
 
-/** Cross-origin navigation can throw when reading popup.closed (Brave, etc.). */
+/** Cross-origin navigation can throw when reading popup.closed (Brave, Chrome COOP, etc.). */
 function isPopupClosed(popup) {
     try {
         return !popup || popup.closed;
-    } catch {
-        return true;
+    } catch (e) {
+        // If security blocks reading .closed, the window is still open on another origin
+        return false;
     }
 }
 
