@@ -13,20 +13,66 @@ const getStripe = () => {
     return new Stripe(key);
 };
 
-const isStripeConfigured = () =>
-    !!(
-        process.env.STRIPE_SECRET_KEY &&
-        (process.env.STRIPE_SECRET_KEY.startsWith('sk_test_') ||
-            (process.env.STRIPE_PRICE_STARTER &&
-                process.env.STRIPE_PRICE_GROWTH &&
-                process.env.STRIPE_PRICE_PRO))
-    );
+const isStripeConfigured = () => !!process.env.STRIPE_SECRET_KEY;
 
 const planIdFromPriceKey = (priceKey) => {
     if (priceKey === 'starter') return 'free';
     if (priceKey === 'growth') return 'Growth';
     if (priceKey === 'pro') return 'Pro';
     return null;
+};
+
+const resolvePriceId = async (stripe, key) => {
+    // 1. Check if configured in environment variables
+    const envKey = `STRIPE_PRICE_${key.toUpperCase()}`;
+    if (process.env[envKey]) {
+        return process.env[envKey];
+    }
+
+    // 2. Otherwise, dynamically find or create it in Stripe
+    const planPrices = {
+        starter: { name: 'Starter Plan', amount: 3900, desc: '1 Employee, WhatsApp Included' },
+        growth: { name: 'Growth Plan', amount: 6900, desc: '2 Employees, WhatsApp Included' },
+        pro: { name: 'Pro Plan', amount: 11900, desc: '3 Employees, WhatsApp Unlimited' },
+    };
+
+    const config = planPrices[key];
+    if (!config) return null;
+
+    try {
+        // List products to see if it already exists
+        const products = await stripe.products.list({ limit: 100 });
+        let product = products.data.find(p => p.name === config.name && p.active);
+
+        if (!product) {
+            // Create product in user's Stripe account
+            product = await stripe.products.create({
+                name: config.name,
+                description: config.desc,
+            });
+            console.log(`[Stripe Auto-Config] Created product: ${product.name} (${product.id})`);
+        }
+
+        // List prices for this product
+        const prices = await stripe.prices.list({ product: product.id, active: true, limit: 10 });
+        let price = prices.data.find(p => p.unit_amount === config.amount && p.recurring?.interval === 'month');
+
+        if (!price) {
+            // Create monthly price for the product
+            price = await stripe.prices.create({
+                product: product.id,
+                unit_amount: config.amount,
+                currency: 'eur',
+                recurring: { interval: 'month' },
+            });
+            console.log(`[Stripe Auto-Config] Created price: ${price.id} for ${config.name}`);
+        }
+
+        return price.id;
+    } catch (err) {
+        console.error(`[Stripe Auto-Config] Failed to resolve price for ${key}:`, err.message);
+        return null;
+    }
 };
 
 const priceIdForKey = (priceKey) => {
@@ -161,31 +207,18 @@ export const createCheckoutSession = async (req, res) => {
             return res.status(400).json({ success: false, code: 'stripe_invalid_plan' });
         }
 
-        const priceId = priceIdForKey(priceKey);
-        const appPlan = planIdFromPriceKey(priceKey);
-        const userId = req.user.id;
-        const frontend = frontendBaseUrl();
-
-        // Fallback for test mode if price IDs are not configured on Render
-        if (!priceId && process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_')) {
-            console.log(`[Stripe Test Bypass] Auto-activating plan "${appPlan}" for user ${userId}`);
-            await persistStripeBilling(userId, {
-                appPlan,
-                customerId: 'cus_test_mock',
-                subscriptionId: 'sub_test_mock',
-            });
-            return res.json({
-                success: true,
-                url: `${frontend}/billing/success?session_id=mock_session_${priceKey}`,
-            });
-        }
-
+        const priceId = await resolvePriceId(stripe, priceKey);
         if (!priceId) {
             return res.status(503).json({
                 success: false,
                 code: 'stripe_price_ids_missing',
+                message: 'Could not load or auto-create the Stripe Product or Price ID.',
             });
         }
+
+        const appPlan = planIdFromPriceKey(priceKey);
+        const userId = req.user.id;
+        const frontend = frontendBaseUrl();
 
         const idempotencyBucket = Math.floor(Date.now() / stripeCheckoutIdempotencyBucketMs);
         const checkoutIdempotencyKey = `checkout:${userId}:${priceKey}:${idempotencyBucket}`;
@@ -307,39 +340,7 @@ export const verifyCheckoutSession = async (req, res) => {
             return res.status(400).json({ success: false, code: 'stripe_session_invalid' });
         }
 
-        // Handle mock test session bypass (runs even if Stripe isn't configured)
-        if (String(sessionId).startsWith('mock_session_')) {
-            const planKey = String(sessionId).replace('mock_session_', '');
-            const appPlan = planIdFromPriceKey(planKey) || 'free';
 
-            await persistStripeBilling(req.user.id, {
-                appPlan,
-                customerId: 'cus_test_mock',
-                subscriptionId: 'sub_test_mock',
-            });
-
-            const userRes = await pool.query(
-                `SELECT id, name, email, company_name, phone, plan, role, status, created_at,
-                        COALESCE(weekly_reports_enabled, TRUE) AS weekly_reports_enabled,
-                        COALESCE(onboarding_completed, FALSE) AS onboarding_completed,
-                        trial_ends_at, stripe_subscription_id, stripe_customer_id
-                 FROM users WHERE id = $1`,
-                [req.user.id]
-            );
-            const user = userRes.rows[0];
-            if (!user) {
-                return res.status(404).json({ success: false, code: 'stripe_user_not_found' });
-            }
-
-            const token = signAccessToken(user);
-            setJwtCookie(res, token);
-
-            return res.json({
-                success: true,
-                paid: true,
-                user: enrichUserForClient(user),
-            });
-        }
 
         const stripe = getStripe();
         if (!stripe) {
