@@ -38,6 +38,7 @@ const EmployeeGallery = lazy(() => import('./pages/EmployeeGallery'));
 const EmployeeGalleryDemo = lazy(() => import('./pages/EmployeeGalleryDemo'));
 const TranslationEditor = lazy(() => import('./pages/TranslationEditor'));
 const AdminErrors = lazy(() => import('./pages/AdminErrors'));
+const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 const Optimization = lazy(() => import('./pages/Optimization'));
 const ContentReviews = lazy(() => import('./pages/ContentReviews'));
 const ReviewBooster = lazy(() => import('./pages/ReviewBooster'));
@@ -113,6 +114,7 @@ function App() {
                                             <Route path="config/lead-followup" element={<LeadFollowUp />} />
                                             <Route path="integrations" element={<Integrations />} />
                                             <Route path="leads" element={<Leads />} />
+                                            <Route path="admin/users" element={<AdminPanel />} />
                                             <Route path="admin/errors" element={<AdminErrors />} />
                                             <Route path="optimization" element={<Optimization />} />
                                             <Route path="content-reviews" element={<ContentReviews />} />

@@ -323,6 +323,7 @@ const DashboardLayout = () => {
         if (path === '/dashboard/create-automation') return t('titleSetup');
         if (path === '/dashboard/integrations') return t('titleIntegrations');
         if (path === '/dashboard/admin/errors') return t('titleAdminErrors');
+        if (path === '/dashboard/admin/users') return 'User Directory';
         if (path === '/dashboard/leads') return t('titleContacts');
         if (path === '/dashboard/feedback') return t('titleReviews');
         if (path === '/dashboard/marketplace') return t('titleMarketplace');
@@ -492,6 +493,26 @@ const DashboardLayout = () => {
                             <span>{t('sidebarMarketplace')}</span>
                         </Link>
                     </div>
+
+                    {user?.is_admin && (
+                        <div className="nav-group">
+                            <span className="nav-label">System Admin</span>
+                            <Link
+                                to="/dashboard/admin/users"
+                                className={`nav-item ${isActive('/dashboard/admin/users') ? 'active' : ''}`}
+                            >
+                                <Users size={18} aria-hidden />
+                                <span>User Directory</span>
+                            </Link>
+                            <Link
+                                to="/dashboard/admin/errors"
+                                className={`nav-item ${isActive('/dashboard/admin/errors') ? 'active' : ''}`}
+                            >
+                                <ShieldAlert size={18} aria-hidden />
+                                <span>System Errors</span>
+                            </Link>
+                        </div>
+                    )}
                 </nav>
 
                 <div className="sidebar-footer">
