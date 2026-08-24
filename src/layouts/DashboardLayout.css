@@ -467,6 +467,22 @@
     color: var(--text-secondary);
 }
 
+.admin-badge {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 5px;
+    border-radius: 4px;
+    margin-left: 6px;
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 1;
+}
+
 .profile-chevron {
     color: var(--text-secondary);
     transition: transform 0.2s ease;

@@ -562,7 +562,10 @@ const DashboardLayout = () => {
                             >
                                 <div className="profile-avatar">{user ? (user.company_name || user.name || 'U').charAt(0).toUpperCase() : 'U'}</div>
                                 <div className="profile-info">
-                                    <span className="profile-name" title={user ? (user.company_name || user.name || user.email) : undefined}>{user ? (user.company_name || user.name || user.email) : t('loading')}</span>
+                                    <span className="profile-name" title={user ? (user.company_name || user.name || user.email) : undefined}>
+                                        {user ? (user.company_name || user.name || user.email) : t('loading')}
+                                        {user?.is_admin && <span className="admin-badge">Admin</span>}
+                                    </span>
                                     <span className="profile-role" style={{ textTransform: 'capitalize' }}>{user?.role || ''}</span>
                                 </div>
                                 <ChevronDown size={14} className={`profile-chevron ${isProfileOpen ? 'is-open' : ''}`} />
@@ -571,7 +574,10 @@ const DashboardLayout = () => {
                             {isProfileOpen && (
                                 <div className="profile-dropdown">
                                     <div className="dropdown-user-section">
-                                        <p className="dropdown-user-name">{user ? (user.company_name || user.name || user.email) : t('loading')}</p>
+                                        <p className="dropdown-user-name">
+                                            {user ? (user.company_name || user.name || user.email) : t('loading')}
+                                            {user?.is_admin && <span className="admin-badge">Admin</span>}
+                                        </p>
                                         <p className="dropdown-user-email">{user?.email || ''}</p>
                                     </div>
                                     <div className="dropdown-menu-section">
