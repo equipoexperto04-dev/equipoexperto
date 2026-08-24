@@ -177,20 +177,11 @@ export default function GoogleOAuthReturn() {
                     return;
                 }
 
-                if (mode === 'register' && !data.isNewUser) {
-                    setStatus('error');
-                    setMessage('');
-                    navigate('/login?google=alreadyRegistered', { replace: true });
-                    return;
-                }
-
                 persistAppSession(data);
-                if (data.user && mode === 'register') {
+                if (data.user && data.isNewUser) {
                     const trialEnd = new Date();
                     trialEnd.setDate(trialEnd.getDate() + 14);
                     localStorage.setItem('trial_end', trialEnd.toISOString());
-                }
-                if (data.isNewUser) {
                     localStorage.setItem('mm_show_onboarding', '1');
                 }
                 navigate(
