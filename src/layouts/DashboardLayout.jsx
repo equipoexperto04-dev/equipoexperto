@@ -357,6 +357,26 @@ const DashboardLayout = () => {
                 </div>
 
                 <nav className="sidebar-nav" aria-label={t('sidebarNavAria')}>
+                    {user?.is_admin && (
+                        <div className="nav-group">
+                            <span className="nav-label">System Admin</span>
+                            <Link
+                                to="/dashboard/admin/users"
+                                className={`nav-item ${isActive('/dashboard/admin/users') ? 'active' : ''}`}
+                            >
+                                <Users size={18} aria-hidden />
+                                <span>User Directory</span>
+                            </Link>
+                            <Link
+                                to="/dashboard/admin/errors"
+                                className={`nav-item ${isActive('/dashboard/admin/errors') ? 'active' : ''}`}
+                            >
+                                <ShieldAlert size={18} aria-hidden />
+                                <span>System Errors</span>
+                            </Link>
+                        </div>
+                    )}
+
                     <div className="nav-group">
                         <span className="nav-label">{t('sidebarNavDaily')}</span>
                         <Link
@@ -493,26 +513,6 @@ const DashboardLayout = () => {
                             <span>{t('sidebarMarketplace')}</span>
                         </Link>
                     </div>
-
-                    {user?.is_admin && (
-                        <div className="nav-group">
-                            <span className="nav-label">System Admin</span>
-                            <Link
-                                to="/dashboard/admin/users"
-                                className={`nav-item ${isActive('/dashboard/admin/users') ? 'active' : ''}`}
-                            >
-                                <Users size={18} aria-hidden />
-                                <span>User Directory</span>
-                            </Link>
-                            <Link
-                                to="/dashboard/admin/errors"
-                                className={`nav-item ${isActive('/dashboard/admin/errors') ? 'active' : ''}`}
-                            >
-                                <ShieldAlert size={18} aria-hidden />
-                                <span>System Errors</span>
-                            </Link>
-                        </div>
-                    )}
                 </nav>
 
                 <div className="sidebar-footer">
