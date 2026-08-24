@@ -3,20 +3,23 @@
  * Provides secure cookie settings for production and development
  */
 
-const isProduction = process.env.NODE_ENV === 'production';
+// Determine if running in a cloud deployment environment (e.g. Render, Heroku)
+const isProduction = process.env.NODE_ENV === 'production' || !!process.env.RENDER || !!process.env.PORT;
 const requestedSameSite = String(process.env.COOKIE_SAME_SITE || '').trim().toLowerCase();
+
 const cookieSameSite =
     requestedSameSite === 'strict' || requestedSameSite === 'lax' || requestedSameSite === 'none'
         ? requestedSameSite
         : isProduction
           ? 'none'
           : 'lax';
+
 const cookieSecure =
     String(process.env.COOKIE_SECURE || '').trim().toLowerCase() === 'false'
         ? false
-        : cookieSameSite === 'none'
+        : isProduction || cookieSameSite === 'none'
           ? true
-          : isProduction;
+          : false;
 
 /**
  * Cookie options for JWT token
