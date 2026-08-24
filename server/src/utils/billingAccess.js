@@ -17,14 +17,13 @@ export function isEstablishedAccount(user) {
 }
 
 /**
- * Dashboard access for app + API: admin, active Stripe sub, or existing account (sign-in).
- * Brand-new sign-ups stay false until checkout (see enrichUserForNewSignup).
+ * Dashboard access for app + API: admin or active Stripe sub.
+ * Brand-new sign-ups stay false until checkout.
  */
 export function hasDashboardAccess(user) {
     if (!user) return false;
     if (isAdminUser(user)) return true;
     if (String(user.stripe_subscription_id || '').trim()) return true;
-    if (isEstablishedAccount(user)) return true;
     return false;
 }
 
