@@ -1,4 +1,5 @@
-﻿import { listErrorEvents, markErrorResolved, bulkResolveErrors, countOpenErrorEvents } from '../services/errorLogService.js';
+import { listErrorEvents, markErrorResolved, bulkResolveErrors, countOpenErrorEvents } from '../services/errorLogService.js';
+import pool from '../db/pool.js';
 
 export async function getErrors(req, res) {
     try {
@@ -48,5 +49,56 @@ export async function resolveErrorsBulk(req, res) {
     } catch (e) {
         console.error('[AdminErrors] bulk resolve failed:', e.message);
         return res.status(500).json({ success: false, message: 'Could not bulk-update errors' });
+    }
+}
+
+export async function getAdminUsers(req, res) {
+    try {
+        const result = await pool.query(
+            `SELECT 
+                u.id, 
+                u.name, 
+                u.email, 
+                u.role, 
+                u.status, 
+                u.created_at, 
+                u.plan, 
+                u.trial_ends_at,
+                COALESCE(
+                    (SELECT 
+                        (CASE WHEN is_active = true THEN 1 ELSE 0 END) + 
+                        (CASE WHEN lead_capture_active = true THEN 1 ELSE 0 END)
+                     FROM review_funnel_settings 
+                     WHERE user_id = u.id), 0
+                ) + 
+                COALESCE(
+                    (SELECT CASE WHEN is_active = true THEN 1 ELSE 0 END 
+                     FROM lead_followup_settings 
+                     WHERE user_id = u.id), 0
+                ) AS active_recipes
+             FROM users u
+             ORDER BY u.created_at DESC
+             LIMIT 200`
+        );
+        return res.status(200).json({ success: true, users: result.rows });
+    } catch (e) {
+        console.error('[AdminUsers] list failed:', e.message);
+        return res.status(500).json({ success: false, message: 'Could not fetch users' });
+    }
+}
+
+export async function updateUserStatus(req, res) {
+    try {
+        const { id } = req.params;
+        const { active } = req.body; // boolean
+        const status = active ? 'active' : 'inactive';
+        await pool.query(
+            'UPDATE users SET status = $1 WHERE id = $2',
+            [status, id]
+        );
+        return res.status(200).json({ success: true });
+    } catch (e) {
+        console.error('[AdminUsers] status update failed:', e.message);
+        return res.status(500).json({ success: false, message: 'Could not update user status' });
     }
 }
