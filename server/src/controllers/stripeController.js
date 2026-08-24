@@ -303,11 +303,11 @@ export const createCheckoutSession = async (req, res) => {
 export const verifyCheckoutSession = async (req, res) => {
     try {
         const sessionId = req.query.session_id;
-        if (!stripe || !sessionId) {
+        if (!sessionId) {
             return res.status(400).json({ success: false, code: 'stripe_session_invalid' });
         }
 
-        // Handle mock test session bypass
+        // Handle mock test session bypass (runs even if Stripe isn't configured)
         if (String(sessionId).startsWith('mock_session_')) {
             const planKey = String(sessionId).replace('mock_session_', '');
             const appPlan = planIdFromPriceKey(planKey) || 'free';
@@ -339,6 +339,11 @@ export const verifyCheckoutSession = async (req, res) => {
                 paid: true,
                 user: enrichUserForClient(user),
             });
+        }
+
+        const stripe = getStripe();
+        if (!stripe) {
+            return res.status(400).json({ success: false, code: 'stripe_session_invalid' });
         }
 
         const session = await stripe.checkout.sessions.retrieve(String(sessionId), {
