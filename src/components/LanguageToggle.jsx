@@ -9,15 +9,21 @@ const LanguageToggle = ({ className = "" }) => {
         <button 
             onClick={toggleLanguage}
             title={language === 'en' ? "Cambiar a Español" : "Switch to English"}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 hover:bg-black/5 dark:hover:bg-white/10 group ${className}`}
+            className={`transition-all duration-300 hover:bg-black/5 dark:hover:bg-white/10 group ${className}`}
             style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                borderRadius: '9999px',
                 background: 'var(--bg-card)',
                 border: '1px solid var(--border-color)',
                 cursor: 'pointer',
                 color: 'var(--text-primary)',
                 fontSize: '0.75rem',
                 fontWeight: 800,
-                letterSpacing: '0.05em'
+                letterSpacing: '0.05em',
+                boxSizing: 'border-box'
             }}
         >
             <Globe size={14} className="text-secondary opacity-70 group-hover:opacity-100 transition-opacity" />

@@ -131,12 +131,7 @@ const Feedback = () => {
         const { item, draft } = draftModal;
         if (!item.customer_email) return;
         const mailtoUrl = `mailto:${item.customer_email}?subject=${encodeURIComponent(t('feedbackReplySubject') || 'Re: your feedback')}&body=${encodeURIComponent(draft)}`;
-        const anchor = document.createElement('a');
-        anchor.href = mailtoUrl;
-        anchor.style.display = 'none';
-        document.body.appendChild(anchor);
-        anchor.click();
-        document.body.removeChild(anchor);
+        window.location.href = mailtoUrl;
     };
 
     const handleSendDraftWhatsApp = () => {

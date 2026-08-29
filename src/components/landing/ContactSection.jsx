@@ -22,11 +22,40 @@ const ContactSection = () => {
         setStatus('loading');
         setErrorMessage('');
 
+        const nameTrimmed = formData.name.trim();
+        const emailTrimmed = formData.email.trim();
+        const messageTrimmed = formData.message.trim();
+
+        // Issue #7: Prevent space-only submissions
+        if (!nameTrimmed || !emailTrimmed || !messageTrimmed) {
+            setStatus('error');
+            setErrorMessage(t('contactFormEmptySpaces') || 'Please fill in all fields with valid content.');
+            return;
+        }
+
+        // Issue #6: Strict email validation requiring valid domain dot
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailTrimmed)) {
+            setStatus('error');
+            setErrorMessage(t('contactSalesEmailInvalid') || 'Please enter a valid email address.');
+            return;
+        }
+
+        // Issue #8: Prevent numeric-only or invalid character names
+        if (/^\d+$/.test(nameTrimmed)) {
+            setStatus('error');
+            setErrorMessage(t('invalidNameFormat') || 'Name must contain letters.');
+            return;
+        }
+
         try {
             const res = await fetch(`${API_URL}/api/support/contact`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+                body: JSON.stringify({
+                    name: nameTrimmed,
+                    email: emailTrimmed,
+                    message: messageTrimmed
+                }),
                 signal: AbortSignal.timeout(30_000),
             });
             const data = await res.json().catch(() => ({}));
@@ -90,7 +119,7 @@ const ContactSection = () => {
                         ) : (
                             <form className="contact-form-v2" onSubmit={handleSubmit}>
                                 <div className="form-group-v2">
-                                    <label><User size={14} /> {t('contactName')}</label>
+                                    <label><User size={14} /> {t('contactName')} <span className="text-red-500">*</span></label>
                                     <input 
                                         type="text" 
                                         name="name"
@@ -103,7 +132,7 @@ const ContactSection = () => {
                                 </div>
 
                                 <div className="form-group-v2">
-                                    <label><Mail size={14} /> {t('contactEmailLabel')}</label>
+                                    <label><Mail size={14} /> {t('contactEmailLabel')} <span className="text-red-500">*</span></label>
                                     <input 
                                         type="email" 
                                         name="email"
@@ -116,7 +145,7 @@ const ContactSection = () => {
                                 </div>
 
                                 <div className="form-group-v2">
-                                    <label><MessageCircle size={14} /> {t('contactMessage')}</label>
+                                    <label><MessageCircle size={14} /> {t('contactMessage')} <span className="text-red-500">*</span></label>
                                     <textarea 
                                         name="message"
                                         placeholder={t('contactMessagePlaceholder')}

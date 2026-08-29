@@ -893,6 +893,7 @@
     box-shadow: 0 4px 14px var(--cfg-accent-border);
 }
 .cfg-save-btn.has-changes:hover {
+    color: #ffffff;
     transform: translateY(-1px);
     box-shadow: 0 6px 20px var(--cfg-accent-border);
 }
@@ -1608,7 +1609,7 @@
     cursor: pointer;
     transition: background 0.15s;
 }
-.cfg-embed-code-btn:hover { background: rgba(74,222,128,0.25); color: #4ade80; }
+.cfg-embed-code-btn:hover { background: #22c55e; color: #ffffff; }
 
 .cfg-embed-type-grid {
     display: grid;
