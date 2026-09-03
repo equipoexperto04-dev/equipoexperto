@@ -145,15 +145,15 @@ const AdminPanel = () => {
     };
 
     return (
-        <div className="page-container" style={{ padding: '0 1rem' }}>
-            <div className="mb-8 flex justify-between items-center" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="page-container" style={{ padding: '0 1rem', maxWidth: '100%', overflowX: 'hidden' }}>
+            <div className="mb-8" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h2 className="text-3xl font-bold mb-2 tracking-tight">Admin Control Panel</h2>
                     <p className="text-secondary text-base">Manage registered users, customer support issues, and system health.</p>
                 </div>
 
                 {/* Tab Switcher */}
-                <div className="flex gap-2" style={{ display: 'flex', gap: '0.5rem', background: 'var(--bg-secondary)', padding: '0.25rem', borderRadius: '0.75rem', border: '1px solid var(--border-color)' }}>
+                <div className="flex gap-2" style={{ display: 'flex', gap: '0.5rem', background: 'var(--bg-secondary)', padding: '0.25rem', borderRadius: '0.75rem', border: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
                     <button
                         className={`btn ${activeTab === 'tickets' ? 'btn-primary' : 'btn-ghost'}`}
                         onClick={() => setActiveTab('tickets')}
@@ -176,7 +176,7 @@ const AdminPanel = () => {
             {/* TAB 1: CUSTOMER ISSUES */}
             {activeTab === 'tickets' && (
                 <>
-                    <div className="stats-grid mb-8" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+                    <div className="stats-grid mb-8" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
                         <div className="glass-card stat-card flex items-center justify-between" style={{ padding: '1.25rem' }}>
                             <div>
                                 <p className="text-secondary text-xs font-semibold mb-1 uppercase tracking-wider">Total Issues</p>
@@ -218,15 +218,15 @@ const AdminPanel = () => {
                         </div>
                     </div>
 
-                    <div className="glass-card overflow-hidden" style={{ padding: 0, border: '1px solid var(--border-color)' }}>
-                        <div className="p-6 border-b flex justify-between items-center" style={{ padding: '1.25rem 1.5rem', borderColor: 'var(--border-color)', borderBottomWidth: '1px', borderBottomStyle: 'solid', background: 'var(--bg-card)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="glass-card overflow-hidden" style={{ padding: 0, border: '1px solid var(--border-color)', width: '100%', maxWidth: '100%' }}>
+                        <div className="p-6 border-b flex justify-between items-center" style={{ padding: '1.25rem 1.5rem', borderColor: 'var(--border-color)', borderBottomWidth: '1px', borderBottomStyle: 'solid', background: 'var(--bg-card)', display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div className="flex items-center gap-3">
                                 <h3 className="font-bold text-xl m-0 tracking-tight">Customer Issues & Support Inbox</h3>
                                 {loadingTickets && <Loader2 className="animate-spin text-accent" size={18} />}
                             </div>
 
                             {/* Status Filter Buttons */}
-                            <div className="flex gap-2">
+                            <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
                                 {['all', 'open', 'in_progress', 'resolved'].map((st) => (
                                     <button
                                         key={st}
@@ -264,18 +264,18 @@ const AdminPanel = () => {
                         )}
 
                         {tickets.length > 0 && (
-                            <div className="table-responsive">
-                                <table className="custom-table w-100">
+                            <div className="table-responsive" style={{ width: '100%', overflowX: 'auto', display: 'block' }}>
+                                <table className="custom-table w-100" style={{ minWidth: '920px', width: '100%' }}>
                                     <thead style={{ background: 'var(--bg-secondary)' }}>
                                         <tr>
-                                            <th>ID</th>
-                                            <th>Customer Name</th>
-                                            <th>Email</th>
-                                            <th>Topic / Subject</th>
-                                            <th>Priority</th>
-                                            <th>Status</th>
-                                            <th>Submitted</th>
-                                            <th className="text-right">Actions</th>
+                                            <th style={{ width: '60px' }}>ID</th>
+                                            <th style={{ minWidth: '140px' }}>Customer Name</th>
+                                            <th style={{ minWidth: '180px' }}>Email</th>
+                                            <th style={{ minWidth: '220px' }}>Topic / Subject</th>
+                                            <th style={{ width: '100px' }}>Priority</th>
+                                            <th style={{ width: '140px' }}>Status</th>
+                                            <th style={{ minWidth: '140px' }}>Submitted</th>
+                                            <th className="text-right" style={{ width: '90px', textAlign: 'right' }}>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -284,7 +284,7 @@ const AdminPanel = () => {
                                                 <td className="font-bold">#{ticket.id}</td>
                                                 <td className="font-bold">{ticket.name}</td>
                                                 <td className="text-sm text-secondary">{ticket.email}</td>
-                                                <td className="text-sm max-w-xs truncate">{ticket.subject}</td>
+                                                <td className="text-sm" style={{ maxWidth: '240px', wordBreak: 'break-word' }}>{ticket.subject}</td>
                                                 <td>
                                                     <span className={`badge ${getPriorityBadgeClass(ticket.priority)}`}>
                                                         {ticket.priority || 'medium'}
@@ -386,8 +386,8 @@ const AdminPanel = () => {
                         )}
 
                         {(users.length > 0) && (
-                            <div className="table-responsive">
-                                <table className="custom-table w-100">
+                            <div className="table-responsive" style={{ width: '100%', overflowX: 'auto', display: 'block' }}>
+                                <table className="custom-table w-100" style={{ minWidth: '750px', width: '100%' }}>
                                     <thead style={{ background: 'var(--bg-secondary)' }}>
                                         <tr>
                                             <th>Name</th>

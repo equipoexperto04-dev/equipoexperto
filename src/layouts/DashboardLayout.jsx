@@ -14,6 +14,7 @@ import OnboardingFlow from '../components/OnboardingFlow';
 import { useTranslation } from '../context/LanguageContext';
 import { PlanEntitlementsProvider } from '../context/PlanEntitlementsContext';
 import { useToast } from '../components/Toast';
+import SupportFloatingWidget from '../components/SupportFloatingWidget';
 import './DashboardLayout.css';
 import API_URL from '../config.js';
 import { hasCompletedOnboarding } from '../utils/onboarding.js';
@@ -640,6 +641,7 @@ const DashboardLayout = () => {
                     onUserUpdate={(u) => setUser(u)}
                 />
             )}
+            <SupportFloatingWidget />
         </div>
         </PlanEntitlementsProvider>
     );
