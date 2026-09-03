@@ -16,6 +16,7 @@ import LanguageToggle from '../components/LanguageToggle';
 import { useTranslation } from '../context/LanguageContext';
 import { useLandingContent } from '../context/LandingContentContext';
 import { loadMetaPixel } from '../utils/loadMetaPixel.js';
+import SupportFloatingWidget from '../components/SupportFloatingWidget';
 import './LandingPage.css';
 
 const LandingPage = () => {
@@ -27,6 +28,7 @@ const LandingPage = () => {
     const [scrolled, setScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [showBackToTop, setShowBackToTop] = useState(false);
+    const [supportModalOpen, setSupportModalOpen] = useState(false);
 
     useEffect(() => {
         const script = document.createElement('script');
@@ -122,6 +124,7 @@ const LandingPage = () => {
                         <button className="navbar-link" onClick={() => scrollTo('features')}>{t('recipes')}</button>
                         <button className="navbar-link" onClick={() => scrollTo('pricing')}>{t('pricing')}</button>
                         <button className="navbar-link" onClick={() => scrollTo('faq')}>{t('faqLabel')}</button>
+                        <button className="navbar-link" onClick={() => setSupportModalOpen(true)}>Support</button>
                         <button className="navbar-link" onClick={() => scrollTo('contact')}>{t('contact')}</button>
                     </nav>
 
@@ -144,6 +147,7 @@ const LandingPage = () => {
                         <button className="mobile-menu-link" onClick={() => scrollTo('features')}>{t('recipes')}</button>
                         <button className="mobile-menu-link" onClick={() => scrollTo('pricing')}>{t('pricing')}</button>
                         <button className="mobile-menu-link" onClick={() => scrollTo('faq')}>{t('faqLabel')}</button>
+                        <button className="mobile-menu-link" onClick={() => { setMobileMenuOpen(false); setSupportModalOpen(true); }}>Support</button>
                         <button className="mobile-menu-link" onClick={() => scrollTo('contact')}>{t('contact')}</button>
                         <div className="mobile-menu-actions">
                             <button className="btn-secondary" style={{ width: '100%' }} onClick={() => window.location.href = '/login'}>{t('logIn')}</button>
@@ -192,6 +196,10 @@ const LandingPage = () => {
                     <ArrowUp size={20} />
                 </button>
             )}
+            <SupportFloatingWidget 
+                isOpenExternal={supportModalOpen} 
+                onCloseExternal={() => setSupportModalOpen(false)} 
+            />
         </div>
     );
 };

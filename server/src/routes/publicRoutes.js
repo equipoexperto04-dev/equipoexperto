@@ -12,9 +12,12 @@ const router = Router();
 
 // Routes are mounted at /api in index.js
 
-// Landing Page Contact
+import { createTicket } from '../controllers/supportTicketController.js';
+
+// Landing Page & Customer Support
 router.get('/support/contact/status', getContactFormStatus);
 router.post('/support/contact', submitContactForm);
+router.post('/support/tickets', createTicket);
 
 // GET /api/r/:automation_id — star rating review funnel
 router.get('/r/:automation_id', getPublicReviewConfig);

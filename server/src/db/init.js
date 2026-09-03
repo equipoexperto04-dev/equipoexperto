@@ -1,4 +1,4 @@
-﻿import pool from './pool.js';
+import pool from './pool.js';
 
 /**
  * Initialize database tables.
@@ -258,6 +258,27 @@ const initDB = async () => {
         await client.query(`CREATE INDEX IF NOT EXISTS idx_error_events_created ON error_events (created_at DESC)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_error_events_level ON error_events (level)`);
         console.log('  ✅ error_events table ready');
+
+        // 11. SUPPORT TICKETS (Customer Issues & Feedback)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS support_tickets (
+                id SERIAL PRIMARY KEY,
+                user_id VARCHAR(255),
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) NOT NULL,
+                subject VARCHAR(255),
+                message TEXT NOT NULL,
+                status VARCHAR(50) DEFAULT 'open',
+                priority VARCHAR(50) DEFAULT 'medium',
+                source VARCHAR(50) DEFAULT 'website',
+                admin_notes TEXT,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_support_tickets_created ON support_tickets (created_at DESC)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON support_tickets (status)`);
+        console.log('  ✅ support_tickets table ready');
         await client.query('COMMIT');
         console.log('\nðŸŽ‰ Database consolidated initialization complete!');
     } catch (err) {
