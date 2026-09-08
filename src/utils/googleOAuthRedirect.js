@@ -128,14 +128,18 @@ export function openGoogleOAuthPopup(mode = 'login') {
 
     return new Promise((resolve, reject) => {
         let settled = false;
-        let closeGraceTimer;
+        let closeGraceTimer = null;
 
         const cleanup = () => {
             window.removeEventListener('message', onMessage);
             window.removeEventListener('storage', onStorage);
             window.removeEventListener('focus', onWindowFocus);
+            document.removeEventListener('visibilitychange', onWindowFocus);
             clearInterval(pollClosed);
-            clearTimeout(closeGraceTimer);
+            if (closeGraceTimer) {
+                clearTimeout(closeGraceTimer);
+                closeGraceTimer = null;
+            }
             clearTimeout(absoluteTimeout);
             sessionStorage.removeItem(POPUP_WAIT_KEY);
         };
@@ -154,10 +158,13 @@ export function openGoogleOAuthPopup(mode = 'login') {
 
         const scheduleClosedReject = () => {
             if (settled || !sessionStorage.getItem(POPUP_WAIT_KEY)) return;
-            clearTimeout(closeGraceTimer);
+            if (closeGraceTimer) return;
             closeGraceTimer = setTimeout(() => {
-                if (settled || !isPopupClosed(popup)) return;
-                rejectPopupClosed(finish, reject);
+                closeGraceTimer = null;
+                if (settled) return;
+                if (isPopupClosed(popup)) {
+                    rejectPopupClosed(finish, reject);
+                }
             }, POPUP_CLOSE_GRACE_MS);
         };
 
@@ -217,5 +224,6 @@ export function openGoogleOAuthPopup(mode = 'login') {
         window.addEventListener('message', onMessage);
         window.addEventListener('storage', onStorage);
         window.addEventListener('focus', onWindowFocus);
+        document.addEventListener('visibilitychange', onWindowFocus);
     });
 }

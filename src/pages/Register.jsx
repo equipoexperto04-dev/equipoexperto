@@ -72,6 +72,8 @@ const Register = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [resending, setResending] = useState(false);
 
+    useEffect(() => () => setGoogleLoading(false), []);
+
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.id]: e.target.value });
     };
