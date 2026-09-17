@@ -4,11 +4,9 @@ import App from './App.jsx'
 import { ThemeProvider } from './context/ThemeContext'
 import { analyticsPromise } from './lib/firebase.js'
 import { installFetchAccessTokenRenewal } from './utils/renewSessionToken.js'
-import { removeLegacyAuthToken } from './utils/sessionClient.js'
 import './index.css'
 import './App.css'
 
-removeLegacyAuthToken()
 installFetchAccessTokenRenewal()
 void analyticsPromise
 

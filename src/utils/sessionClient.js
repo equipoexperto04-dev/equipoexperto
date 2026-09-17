@@ -83,9 +83,5 @@ export async function fetchCurrentUserProfile() {
 }
 
 export function removeLegacyAuthToken() {
-  try {
-    localStorage.removeItem('token')
-  } catch {
-    /* noop */
-  }
+  /* no-op: token is preserved for cross-site Bearer header support */
 }

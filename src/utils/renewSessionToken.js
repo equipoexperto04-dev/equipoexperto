@@ -1,5 +1,4 @@
 import API_URL from '../config.js';
-import { removeLegacyAuthToken } from './sessionClient.js';
 
 let installed = false;
 
@@ -12,13 +11,12 @@ function apiOrigin() {
 }
 
 /**
- * Wrap global fetch once so API requests always carry cookies and never send
- * browser-stored bearer tokens.
+ * Wrap global fetch once so API requests to API_URL always carry credentials
+ * and attach Bearer token fallback from localStorage if present.
  */
 export function installFetchAccessTokenRenewal() {
     if (installed || typeof window === 'undefined') return;
     installed = true;
-    removeLegacyAuthToken();
 
     const origin = apiOrigin();
     const nativeFetch = window.fetch.bind(window);
@@ -31,13 +29,13 @@ export function installFetchAccessTokenRenewal() {
                     : input instanceof Request
                       ? input.url
                       : '';
-            if (!urlStr) return res;
+            if (!urlStr) return await nativeFetch(input, init);
 
             let reqOrigin = null;
             try {
                 reqOrigin = new URL(urlStr, window.location.origin).origin;
             } catch {
-                return res;
+                return await nativeFetch(input, init);
             }
 
             const matchesApi =
@@ -56,8 +54,11 @@ export function installFetchAccessTokenRenewal() {
                     mergedHeaders.set(key, value);
                 });
             }
-            mergedHeaders.delete('Authorization');
-            mergedHeaders.delete('authorization');
+
+            const token = localStorage.getItem('token');
+            if (token && !mergedHeaders.has('Authorization') && !mergedHeaders.has('authorization')) {
+                mergedHeaders.set('Authorization', `Bearer ${token}`);
+            }
 
             const nextInit = {
                 ...init,
