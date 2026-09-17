@@ -43,13 +43,13 @@ const Login = () => {
         setTheme(prev => prev === 'light' ? 'dark' : 'light');
     };
 
-    const loginWithBackend = async () => {
+    const loginWithBackend = async (cleanEmail) => {
         const res = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             signal: AbortSignal.timeout(10000),
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ email: cleanEmail, password })
         });
         const data = await parseJsonResponse(res);
         if (!data.success) {
@@ -62,10 +62,11 @@ const Login = () => {
         e.preventDefault();
         setError('');
         setLoading(true);
+        const cleanEmail = email.trim().toLowerCase();
         try {
             const data = shouldUseFirebaseEmailPassword
-                ? await loginWithFirebase(email, password)
-                : await loginWithBackend();
+                ? await loginWithFirebase(cleanEmail, password)
+                : await loginWithBackend(cleanEmail);
             persistAppSession(data);
             const redirect = searchParams.get('redirect');
             const safeRedirect =

@@ -226,6 +226,7 @@ export const register = async (req, res) => {
 
         return res.status(201).json({
             success: true,
+            token,
             message: emailVerificationRequired
                 ? 'Account verified and created successfully. Connect Google in Dashboard → Integrations to send emails from the same Gmail you used to sign up (you can switch to Microsoft or SMTP later).'
                 : 'Account created successfully. Connect Google in Dashboard → Integrations to send emails from the same Gmail you used to sign up (you can switch to Microsoft or SMTP later).',
@@ -309,6 +310,7 @@ export const login = async (req, res) => {
 
         return res.status(200).json({
             success: true,
+            token,
             message: 'Login successful.',
             user: enrichUserForClient(safeUser),
         });
@@ -780,6 +782,7 @@ export const googleLogin = async (req, res) => {
 
         return res.status(200).json({
             success: true,
+            token,
             message: isNewUser
                 ? 'Google sign-in successful. Connect Gmail once under Dashboard → Integrations if you still need it for sending outbound mail.'
                 : 'Google sign-in successful.',
@@ -915,6 +918,7 @@ export const firebaseSessionLogin = async (req, res) => {
 
         return res.status(200).json({
             success: true,
+            token,
             message: isNewUser ? 'Firebase sign-up successful.' : 'Firebase sign-in successful.',
             user: isNewUser ? enrichUserForNewSignup(user) : enrichUserForClient(user),
             isNewUser,
@@ -959,6 +963,7 @@ export const updatePlan = async (req, res) => {
 
         return res.status(200).json({
             success: true,
+            token,
             message: `Plan upgraded to ${plan} successfully!`,
             user: enrichUserForClient(updatedUser),
         });

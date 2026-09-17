@@ -132,13 +132,14 @@ const generalLimiter = rateLimit({
     skip: (req) => req.method === 'OPTIONS', // Skip preflight requests
 });
 
-// Stricter limit on auth endpoints: 5 attempts per 15 minutes
+// Auth endpoint rate limit: 15 attempts per 5 minutes, skipping successful logins
 const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 5,
+    windowMs: 5 * 60 * 1000,
+    max: 15,
+    skipSuccessfulRequests: true,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { success: false, message: 'Too many login attempts. Please wait 15 minutes.' },
+    message: { success: false, message: 'Too many login attempts. Please wait 5 minutes before trying again.' },
 });
 
 app.use(generalLimiter);

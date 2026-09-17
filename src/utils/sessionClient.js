@@ -35,7 +35,9 @@ export function clearClientSession() {
 
 export function persistAppSession(data) {
   try {
-    localStorage.removeItem('token')
+    if (data?.token) {
+      localStorage.setItem('token', data.token)
+    }
   } catch {
     /* noop */
   }
@@ -47,9 +49,16 @@ export function persistAppSession(data) {
 
 export async function fetchCurrentUserProfile() {
   try {
+    const headers = {}
+    const token = localStorage.getItem('token')
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
     const res = await fetch(`${API_URL}/auth/profile`, {
       method: 'GET',
       credentials: 'include',
+      headers,
     })
 
     if (res.status === 401) {

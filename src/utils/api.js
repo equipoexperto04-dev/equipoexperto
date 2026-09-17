@@ -23,6 +23,11 @@ export const apiRequest = async (endpoint, options = {}) => {
         ...options.headers,
     };
 
+    const token = localStorage.getItem('token');
+    if (token && !headers['Authorization'] && !headers['authorization']) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const config = {
         credentials: 'include',
         ...options,
