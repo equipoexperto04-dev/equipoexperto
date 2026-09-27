@@ -20,6 +20,8 @@ import feedbackRoutes from './routes/feedbackRoutes.js';
 import whatsappRoutes from './routes/whatsappRoutes.js';
 import translationRoutes from './routes/translationRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
+import employeeMetricsRoutes from './routes/employeeMetricsRoutes.js';
+import pixelRoutes from './routes/pixelRoutes.js';
 import smtpRoutes from './routes/smtpRoutes.js';
 import apolloRoutes from './routes/apolloRoutes.js';
 import stripeRoutes from './routes/stripeRoutes.js';
@@ -249,6 +251,8 @@ app.use('/api/translations', translationRoutes);
 // Public funnels (review / feedback / lead capture) — MUST be before dashboardApi.
 // dashboardApi applies authenticate to every /api request; mounting it first caused 401 on /api/r/*.
 app.use('/api', publicRoutes);
+app.use('/api/employee-metrics', employeeMetricsRoutes);
+app.use('/api/pixels', pixelRoutes);
 
 // Protected dashboard APIs — require Stripe subscription (admins exempt)
 const dashboardApi = express.Router();

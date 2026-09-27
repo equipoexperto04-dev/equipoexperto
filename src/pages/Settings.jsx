@@ -43,6 +43,56 @@ const Settings = () => {
     const [salesEmail, setSalesEmail] = useState('');
     const [salesSending, setSalesSending] = useState(false);
 
+    const [facebookPixelId, setFacebookPixelId] = useState('');
+    const [chatgptPixelScript, setChatgptPixelScript] = useState('');
+    const [pixelSaving, setPixelSaving] = useState(false);
+
+    useEffect(() => {
+        const fetchPixelSettings = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                const res = await fetch(`${API_URL}/api/pixels/settings`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success && data.data) {
+                    setFacebookPixelId(data.data.facebookPixelId || '');
+                    setChatgptPixelScript(data.data.chatgptPixelScript || '');
+                }
+            } catch (err) {
+                console.error('Error fetching pixel settings:', err);
+            }
+        };
+        fetchPixelSettings();
+    }, []);
+
+    const handleSavePixels = async (e) => {
+        e.preventDefault();
+        setPixelSaving(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/api/pixels/settings`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ facebookPixelId, chatgptPixelScript })
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast('Tracking pixels updated successfully!', 'success');
+            } else {
+                toast(data.message || 'Failed to update pixels', 'error');
+            }
+        } catch (err) {
+            toast('Failed to update pixels', 'error');
+        } finally {
+            setPixelSaving(false);
+        }
+    };
+
     const [searchParams, setSearchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'profile');
     const [billingStripe, setBillingStripe] = useState({
@@ -108,6 +158,7 @@ const Settings = () => {
     const SETTINGS_TABS = [
         { id: 'profile', label: t('tabProfile') },
         { id: 'billing', label: t('tabBilling') },
+        { id: 'pixels', label: 'Tracking Pixels' },
         { id: 'security', label: t('tabSecurity') },
         { id: 'notifications', label: t('tabNotifications') },
         { id: 'danger', label: t('tabDangerZone') },
@@ -447,6 +498,76 @@ const Settings = () => {
                     </div>
                 </div>
             )}</section>}
+
+            {/* Tracking Pixels Section */}
+            {activeTab === 'pixels' && (
+                <section id="pixels" className="settings-section">
+                    <form onSubmit={handleSavePixels} className="settings-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div>
+                            <p className="settings-card-title">Tracking & Analytics Pixels</p>
+                            <p className="settings-card-subtitle">
+                                Configure Facebook Pixel and ChatGPT / Custom script injection for your public funnels and landing pages.
+                            </p>
+                        </div>
+
+                        <div>
+                            <label className="settings-label" style={{ display: 'block', marginBottom: '6px', fontWeight: 600 }}>
+                                Facebook Pixel ID
+                            </label>
+                            <input
+                                type="text"
+                                className="settings-input"
+                                placeholder="e.g. 123456789012345"
+                                value={facebookPixelId}
+                                onChange={(e) => setFacebookPixelId(e.target.value)}
+                                style={{ width: '100%', padding: '10px 14px', borderRadius: '10px' }}
+                            />
+                            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                                Insert your numeric Meta / Facebook Pixel Pixel ID to automatically track visitors & conversions.
+                            </p>
+                        </div>
+
+                        <div>
+                            <label className="settings-label" style={{ display: 'block', marginBottom: '6px', fontWeight: 600 }}>
+                                ChatGPT / Custom Analytics Script Snippet
+                            </label>
+                            <textarea
+                                className="settings-input"
+                                rows={6}
+                                placeholder="<script>... custom tracking or ChatGPT snippet ...</script>"
+                                value={chatgptPixelScript}
+                                onChange={(e) => setChatgptPixelScript(e.target.value)}
+                                style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', fontFamily: 'monospace', fontSize: '13px' }}
+                            />
+                            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                                Paste standard HTML/JavaScript code snippet provided by OpenAI ChatGPT or your custom tracking platform.
+                            </p>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={pixelSaving}
+                            className="settings-save-btn"
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '12px 24px',
+                                backgroundColor: 'var(--accent-color, #6366f1)',
+                                color: '#fff',
+                                borderRadius: '10px',
+                                border: 'none',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                width: 'fit-content'
+                            }}
+                        >
+                            <Save size={16} />
+                            {pixelSaving ? 'Saving Pixels...' : 'Save Pixel Settings'}
+                        </button>
+                    </form>
+                </section>
+            )}
 
             {/* Security section */}
             {activeTab === 'security' && (

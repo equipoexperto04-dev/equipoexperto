@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trash2, ArrowRight } from 'lucide-react';
+import { Trash2, ArrowRight, Printer } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import DashboardSkeleton from '../components/DashboardSkeleton.jsx';
 import { useTranslation } from '../context/LanguageContext';
 import { usePlanEntitlements, turningOnWouldExceedSlotLimit } from '../context/PlanEntitlementsContext';
+import PrintableQrModal from '../components/PrintableQrModal.jsx';
 import './Dashboard.css';
 import API_URL from '../config.js';
 import { EMPLOYEES } from '../constants/employees.js';
@@ -233,6 +234,8 @@ const Dashboard = () => {
   const [confirmFire, setConfirmFire] = useState(null);
   const [firing, setFiring] = useState(null);
   const [activityStats, setActivityStats] = useState({});
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [printableEmployeeName, setPrintableEmployeeName] = useState('');
 
   useEffect(() => {
     if (!dashSnapshot) return;
@@ -517,6 +520,18 @@ const Dashboard = () => {
                         {t('editSetup')}
                       </button>
                       <button
+                        className="dash-recipe-configure"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        onClick={() => {
+                          setPrintableEmployeeName(empTitle);
+                          setIsQrModalOpen(true);
+                        }}
+                        title="Print high-res QR Code"
+                      >
+                        <Printer size={13} />
+                        <span>Print QR</span>
+                      </button>
+                      <button
                         className="dash-recipe-fire"
                         onClick={() => setConfirmFire(emp.key)}
                         disabled={firing === emp.key}
@@ -585,6 +600,12 @@ const Dashboard = () => {
           </div>
         );
       })()}
+
+      <PrintableQrModal
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+        employeeName={printableEmployeeName}
+      />
     </div>
   );
 };

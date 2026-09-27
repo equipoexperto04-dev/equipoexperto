@@ -393,6 +393,7 @@ const AdminPanel = () => {
                                             <th>Name</th>
                                             <th>Email</th>
                                             <th>Role</th>
+                                            <th>Onboarding Support</th>
                                             <th>Active Recipes</th>
                                             <th>Account Status</th>
                                         </tr>
@@ -406,6 +407,25 @@ const AdminPanel = () => {
                                                     <span className={`badge ${u.role === 'admin' ? 'badge-error' : 'badge-neutral'}`}>
                                                         {u.role || 'user'}
                                                     </span>
+                                                </td>
+                                                <td>
+                                                    {u.selected_onboarding_support ? (
+                                                        <span style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                                            color: '#10b981',
+                                                            padding: '4px 8px',
+                                                            borderRadius: '6px',
+                                                            fontSize: '11px',
+                                                            fontWeight: 700
+                                                        }}>
+                                                            <CheckCircle2 size={12} /> VIP Onboarding
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Standard</span>
+                                                    )}
                                                 </td>
                                                 <td>
                                                     <div className="flex items-center gap-2">

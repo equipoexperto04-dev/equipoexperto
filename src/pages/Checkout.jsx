@@ -53,6 +53,7 @@ const Checkout = () => {
 
     const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
     const [isRedirecting, setIsRedirecting] = useState(false);
+    const [includeOnboarding, setIncludeOnboarding] = useState(false);
     const [errorCode, setErrorCode] = useState('');
     const [checkoutDetailError, setCheckoutDetailError] = useState('');
 
@@ -230,6 +231,34 @@ const Checkout = () => {
                                 <Link to="/privacy">{t('privacyPolicy')}</Link>
                             </p>
                             <p className="checkout-trial-muted">{t('checkoutTrialComms')}</p>
+                        </div>
+
+                        <div style={{
+                            margin: '16px 0',
+                            padding: '16px',
+                            backgroundColor: includeOnboarding ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-card, #f8fafc)',
+                            border: includeOnboarding ? '2px solid #6366f1' : '1px solid var(--border-color, #e2e8f0)',
+                            borderRadius: '16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '14px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                        }} onClick={() => setIncludeOnboarding(!includeOnboarding)}>
+                            <input
+                                type="checkbox"
+                                checked={includeOnboarding}
+                                onChange={(e) => setIncludeOnboarding(e.target.checked)}
+                                style={{ width: '20px', height: '20px', accentColor: '#6366f1', cursor: 'pointer' }}
+                            />
+                            <div>
+                                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary, #0f172a)' }}>
+                                    Add VIP 1-on-1 Onboarding Support (+$150 USD)
+                                </div>
+                                <div style={{ fontSize: '12px', color: 'var(--text-secondary, #64748b)', marginTop: '2px' }}>
+                                    Includes dedicated setup assistance, custom integrations & account manager onboarding.
+                                </div>
+                            </div>
                         </div>
 
                         <div className="checkout-secure-banner">
