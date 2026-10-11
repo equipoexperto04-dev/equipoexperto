@@ -253,7 +253,7 @@ const Checkout = () => {
                             />
                             <div>
                                 <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary, #0f172a)' }}>
-                                    Add VIP 1-on-1 Onboarding Support (+$150 USD)
+                                    Add VIP 1-on-1 Onboarding Support (+$50 USD)
                                 </div>
                                 <div style={{ fontSize: '12px', color: 'var(--text-secondary, #64748b)', marginTop: '2px' }}>
                                     Includes dedicated setup assistance, custom integrations & account manager onboarding.
