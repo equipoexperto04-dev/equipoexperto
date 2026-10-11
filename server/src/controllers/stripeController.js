@@ -6,14 +6,38 @@ import { setJwtCookie } from '../utils/cookieHelpers.js';
 import { enrichUserForClient } from '../utils/billingAccess.js';
 import { resolveBillingForEntitlements } from '../services/subscriptionPlans.js';
 import { isAdminUser } from '../utils/adminAccess.js';
+import { getSystemSetting } from '../services/systemSettingsService.js';
 
-const getStripe = () => {
-    const key = process.env.STRIPE_SECRET_KEY;
+export const getActiveStripeMode = async () => {
+    return await getSystemSetting('stripe_mode', process.env.STRIPE_MODE || 'test');
+};
+
+export const getStripeSecretKey = async () => {
+    const mode = await getActiveStripeMode();
+    if (mode === 'live') {
+        return process.env.STRIPE_LIVE_SECRET_KEY || (process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? process.env.STRIPE_SECRET_KEY : null);
+    }
+    return process.env.STRIPE_TEST_SECRET_KEY || (process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') ? process.env.STRIPE_SECRET_KEY : null) || process.env.STRIPE_SECRET_KEY;
+};
+
+export const getStripeWebhookSecret = async () => {
+    const mode = await getActiveStripeMode();
+    if (mode === 'live') {
+        return process.env.STRIPE_LIVE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET;
+    }
+    return process.env.STRIPE_TEST_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET;
+};
+
+const getStripe = async () => {
+    const key = await getStripeSecretKey();
     if (!key) return null;
     return new Stripe(key);
 };
 
-const isStripeConfigured = () => !!process.env.STRIPE_SECRET_KEY;
+const isStripeConfigured = async () => {
+    const key = await getStripeSecretKey();
+    return !!key;
+};
 
 const planIdFromPriceKey = (priceKey) => {
     if (priceKey === 'starter') return 'free';
@@ -131,7 +155,8 @@ async function persistStripeBilling(userId, { customerId, subscriptionId, appPla
  */
 export const getBillingStatus = async (req, res) => {
     try {
-        const configured = isStripeConfigured();
+        const configured = await isStripeConfigured();
+        const mode = await getActiveStripeMode();
         const row = await pool.query(
             `SELECT plan, trial_ends_at, email, role, stripe_customer_id, stripe_subscription_id
              FROM users WHERE id = $1`,
@@ -146,6 +171,7 @@ export const getBillingStatus = async (req, res) => {
         return res.json({
             success: true,
             configured,
+            stripe_mode: mode,
             plan: billing.plan,
             is_admin: isAdminUser(req.user),
             canManagePortal: configured && !!u?.stripe_customer_id && !isAdminUser(req.user),
@@ -162,7 +188,7 @@ export const getBillingStatus = async (req, res) => {
  */
 export const createPortalSession = async (req, res) => {
     try {
-        const stripe = getStripe();
+        const stripe = await getStripe();
         if (!stripe) {
             return res.status(503).json({ success: false, code: 'stripe_not_configured' });
         }
@@ -194,7 +220,7 @@ export const createPortalSession = async (req, res) => {
  */
 export const createCheckoutSession = async (req, res) => {
     try {
-        const stripe = getStripe();
+        const stripe = await getStripe();
         if (!stripe) {
             return res.status(503).json({
                 success: false,
@@ -342,7 +368,7 @@ export const verifyCheckoutSession = async (req, res) => {
 
 
 
-        const stripe = getStripe();
+        const stripe = await getStripe();
         if (!stripe) {
             return res.status(400).json({ success: false, code: 'stripe_session_invalid' });
         }
@@ -447,19 +473,35 @@ async function handleSubscriptionLifecycle(subscription, eventType) {
  * POST /api/webhooks/stripe (raw body)
  */
 export const handleStripeWebhook = async (req, res) => {
-    const stripe = getStripe();
-    const whSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!stripe || !whSecret) {
-        return res.status(503).send('Stripe webhook not configured');
+    const stripe = await getStripe();
+    const whSecret = await getStripeWebhookSecret();
+    if (!stripe) {
+        return res.status(503).send('Stripe not configured');
     }
 
     const sig = req.headers['stripe-signature'];
     let event;
-    try {
-        event = stripe.webhooks.constructEvent(req.body, sig, whSecret);
-    } catch (err) {
-        console.error('[Stripe webhook] signature:', err.message);
-        return res.status(400).send(`Webhook Error: ${err.message}`);
+    const candidateSecrets = [
+        whSecret,
+        process.env.STRIPE_WEBHOOK_SECRET,
+        process.env.STRIPE_LIVE_WEBHOOK_SECRET,
+        process.env.STRIPE_TEST_WEBHOOK_SECRET,
+    ].filter(Boolean);
+
+    let constructError = null;
+    for (const secret of candidateSecrets) {
+        try {
+            event = stripe.webhooks.constructEvent(req.body, sig, secret);
+            constructError = null;
+            break;
+        } catch (err) {
+            constructError = err;
+        }
+    }
+
+    if (!event) {
+        console.error('[Stripe webhook] signature failed:', constructError?.message);
+        return res.status(400).send(`Webhook Error: ${constructError?.message || 'Signature mismatch'}`);
     }
 
     try {

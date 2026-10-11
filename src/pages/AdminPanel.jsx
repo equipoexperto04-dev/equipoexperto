@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Server, Activity, ShieldAlert, Loader2, LifeBuoy, CheckCircle2, Clock, AlertTriangle, Eye, Trash2, X, RefreshCw } from 'lucide-react';
+import { Users, Server, Activity, ShieldAlert, Loader2, LifeBuoy, CheckCircle2, Clock, AlertTriangle, Eye, Trash2, X, RefreshCw, CreditCard, Lock, ShieldCheck, Copy, Check } from 'lucide-react';
 import ToggleSwitch from '../components/ToggleSwitch';
 import { get, patch, del } from '../utils/api.js';
 import { useToast } from '../components/Toast';
@@ -20,6 +20,61 @@ const AdminPanel = () => {
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [adminNotesInput, setAdminNotesInput] = useState('');
     const [forbidden, setForbidden] = useState(false);
+
+    // Stripe Gateway State
+    const [stripeSettings, setStripeSettings] = useState({
+        mode: 'test',
+        hasTestKey: false,
+        hasLiveKey: false,
+        testKeyMasked: '',
+        liveKeyMasked: '',
+        activeKeyMasked: '',
+    });
+    const [loadingStripe, setLoadingStripe] = useState(false);
+    const [togglingStripe, setTogglingStripe] = useState(false);
+    const [copiedCard, setCopiedCard] = useState(false);
+
+    const fetchStripeSettings = async () => {
+        setLoadingStripe(true);
+        try {
+            const data = await get('/api/admin/settings/stripe');
+            if (data?.success) {
+                setStripeSettings(data);
+            }
+        } catch (err) {
+            toast(err.message || 'Failed to fetch Stripe gateway settings', 'error');
+        } finally {
+            setLoadingStripe(false);
+        }
+    };
+
+    const handleToggleStripeMode = async () => {
+        const targetMode = stripeSettings.mode === 'live' ? 'test' : 'live';
+
+        if (targetMode === 'live') {
+            const confirmed = window.confirm(
+                '⚠️ ACTIVATE STRIPE LIVE MODE?\n\n' +
+                'Real payments will be processed and customer credit cards will be billed actual funds.\n\n' +
+                'Note: Subscriptions created in test mode will not be recognized in live mode.\n\n' +
+                'Do you want to switch to LIVE MODE now?'
+            );
+            if (!confirmed) return;
+        }
+
+        setTogglingStripe(true);
+        try {
+            const data = await patch('/api/admin/settings/stripe', { mode: targetMode });
+            if (data?.success) {
+                setStripeSettings(prev => ({ ...prev, mode: data.mode }));
+                toast(data.message || `Stripe switched to ${data.mode.toUpperCase()} mode successfully`, 'success');
+                fetchStripeSettings();
+            }
+        } catch (err) {
+            toast(err.message || 'Failed to switch Stripe mode', 'error');
+        } finally {
+            setTogglingStripe(false);
+        }
+    };
 
     const fetchUsers = async () => {
         setLoadingUsers(true);
@@ -60,11 +115,14 @@ const AdminPanel = () => {
 
     useEffect(() => {
         fetchUsers();
+        fetchStripeSettings();
     }, []);
 
     useEffect(() => {
         if (activeTab === 'tickets') {
             fetchTickets();
+        } else if (activeTab === 'payment') {
+            fetchStripeSettings();
         }
     }, [activeTab, ticketFilter]);
 
@@ -169,6 +227,14 @@ const AdminPanel = () => {
                     >
                         <Users size={18} />
                         <span>User Directory ({totalUsers})</span>
+                    </button>
+                    <button
+                        className={`btn ${activeTab === 'payment' ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => setActiveTab('payment')}
+                        style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}
+                    >
+                        <CreditCard size={18} />
+                        <span>Payment Mode ({stripeSettings.mode === 'live' ? 'LIVE' : 'TEST'})</span>
                     </button>
                 </div>
             </div>
@@ -445,6 +511,167 @@ const AdminPanel = () => {
                                 </table>
                             </div>
                         )}
+                    </div>
+                </>
+            )}
+
+            {/* TAB 3: PAYMENT GATEWAY (STRIPE TEST / LIVE MODE) */}
+            {activeTab === 'payment' && (
+                <>
+                    {/* Top Stats Overview */}
+                    <div className="stats-grid mb-8" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+                        <div className="glass-card stat-card flex items-center justify-between" style={{ padding: '1.25rem' }}>
+                            <div>
+                                <p className="text-secondary text-xs font-semibold mb-1 uppercase tracking-wider">Gateway Status</p>
+                                <h3 className="text-2xl font-extrabold mb-0" style={{ color: stripeSettings.mode === 'live' ? '#10b981' : '#f59e0b' }}>
+                                    {stripeSettings.mode === 'live' ? 'LIVE MODE' : 'TEST MODE'}
+                                </h3>
+                            </div>
+                            <div className="p-3 rounded-xl" style={{ background: stripeSettings.mode === 'live' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)', color: stripeSettings.mode === 'live' ? '#10b981' : '#f59e0b' }}>
+                                <CreditCard size={24} />
+                            </div>
+                        </div>
+
+                        <div className="glass-card stat-card flex items-center justify-between" style={{ padding: '1.25rem' }}>
+                            <div>
+                                <p className="text-secondary text-xs font-semibold mb-1 uppercase tracking-wider">Test Key (Sandbox)</p>
+                                <h4 className="text-lg font-bold mb-0" style={{ fontFamily: 'monospace' }}>
+                                    {stripeSettings.testKeyMasked || (stripeSettings.hasTestKey ? 'Configured' : 'Missing')}
+                                </h4>
+                            </div>
+                            <div className="p-3 rounded-xl" style={{ background: stripeSettings.hasTestKey ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: stripeSettings.hasTestKey ? '#10b981' : '#ef4444' }}>
+                                {stripeSettings.hasTestKey ? <CheckCircle2 size={24} /> : <AlertTriangle size={24} />}
+                            </div>
+                        </div>
+
+                        <div className="glass-card stat-card flex items-center justify-between" style={{ padding: '1.25rem' }}>
+                            <div>
+                                <p className="text-secondary text-xs font-semibold mb-1 uppercase tracking-wider">Live Key (Production)</p>
+                                <h4 className="text-lg font-bold mb-0" style={{ fontFamily: 'monospace' }}>
+                                    {stripeSettings.liveKeyMasked || (stripeSettings.hasLiveKey ? 'Configured' : 'Missing')}
+                                </h4>
+                            </div>
+                            <div className="p-3 rounded-xl" style={{ background: stripeSettings.hasLiveKey ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: stripeSettings.hasLiveKey ? '#10b981' : '#ef4444' }}>
+                                {stripeSettings.hasLiveKey ? <CheckCircle2 size={24} /> : <AlertTriangle size={24} />}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Mode Toggle Control Card */}
+                    <div className="glass-card mb-8 animate-fade-in" style={{ padding: '1.75rem', border: '1px solid var(--border-color)', borderRadius: '1rem', background: 'var(--bg-secondary)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem' }}>
+                            <div style={{ maxWidth: '600px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                                    <h3 className="text-xl font-bold m-0">Payment Gateway Mode</h3>
+                                    <span
+                                        className="badge"
+                                        style={{
+                                            padding: '0.25rem 0.75rem',
+                                            borderRadius: '9999px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 800,
+                                            background: stripeSettings.mode === 'live' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                            color: stripeSettings.mode === 'live' ? '#10b981' : '#f59e0b',
+                                            border: stripeSettings.mode === 'live' ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(245, 158, 11, 0.3)',
+                                        }}
+                                    >
+                                        {stripeSettings.mode === 'live' ? 'LIVE (Real Billing)' : 'TEST (Sandbox)'}
+                                    </span>
+                                </div>
+                                <p className="text-secondary text-sm m-0">
+                                    Toggle between <strong>Test Mode</strong> (safe sandbox testing with test cards) and <strong>Live Mode</strong> (processes real credit cards and bills actual customers).
+                                </p>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <span style={{ fontSize: '0.875rem', fontWeight: 600, color: stripeSettings.mode === 'test' ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                                    Test Mode
+                                </span>
+                                <ToggleSwitch
+                                    id="stripe-mode-toggle"
+                                    checked={stripeSettings.mode === 'live'}
+                                    onChange={handleToggleStripeMode}
+                                    disabled={togglingStripe || loadingStripe}
+                                />
+                                <span style={{ fontSize: '0.875rem', fontWeight: 700, color: stripeSettings.mode === 'live' ? '#10b981' : 'var(--text-secondary)' }}>
+                                    Live Mode
+                                </span>
+                            </div>
+                        </div>
+
+                        {togglingStripe && (
+                            <div className="flex items-center gap-2 mt-4 text-xs text-accent" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>
+                                <Loader2 size={16} className="animate-spin" />
+                                <span>Switching payment gateway mode...</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Information & Sandbox Helper Cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+                        {/* Test Card Quick Info */}
+                        <div className="glass-card" style={{ padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                                <ShieldCheck size={20} className="text-accent" />
+                                <h4 className="text-base font-bold m-0">Sandbox Test Card</h4>
+                            </div>
+                            <p className="text-secondary text-xs mb-3">
+                                Use Stripe's official standard testing card during checkout while in Test Mode:
+                            </p>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '0.75rem 1rem',
+                                    background: 'var(--bg-primary)',
+                                    borderRadius: '0.5rem',
+                                    border: '1px solid var(--border-color)',
+                                    fontFamily: 'monospace',
+                                    fontSize: '1rem',
+                                    fontWeight: 700,
+                                    marginBottom: '0.75rem',
+                                }}
+                            >
+                                <span>4242 4242 4242 4242</span>
+                                <button
+                                    className="btn btn-ghost"
+                                    style={{ padding: '0.25rem 0.5rem', borderRadius: '0.375rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem' }}
+                                    onClick={() => {
+                                        navigator.clipboard.writeText('4242424242424242');
+                                        setCopiedCard(true);
+                                        setTimeout(() => setCopiedCard(false), 2000);
+                                    }}
+                                >
+                                    {copiedCard ? <Check size={14} className="text-success" /> : <Copy size={14} />}
+                                    <span>{copiedCard ? 'Copied' : 'Copy'}</span>
+                                </button>
+                            </div>
+                            <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                                <span><strong>Expiry:</strong> Any future date (e.g. 12/28)</span>
+                                <span><strong>CVC:</strong> Any 3 digits (e.g. 123)</span>
+                                <span><strong>ZIP:</strong> Any valid ZIP (e.g. 28001)</span>
+                            </div>
+                        </div>
+
+                        {/* Important Stripe Notice */}
+                        <div className="glass-card" style={{ padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: '#f59e0b' }}>
+                                <AlertTriangle size={20} />
+                                <h4 className="text-base font-bold m-0" style={{ color: 'var(--text-primary)' }}>Important Considerations</h4>
+                            </div>
+                            <ul style={{ paddingLeft: '1.25rem', margin: 0, fontSize: '0.8rem', lineHeight: '1.5', color: 'var(--text-secondary)' }}>
+                                <li className="mb-2">
+                                    <strong>Customer Isolation:</strong> Test subscriptions created in Test Mode exist strictly in the Stripe Sandbox and cannot be charged in Live Mode.
+                                </li>
+                                <li className="mb-2">
+                                    <strong>Auto-Provisioning:</strong> The server automatically creates Starter, Growth, and Pro subscription products and prices on Stripe for whichever mode is active.
+                                </li>
+                                <li>
+                                    <strong>Going Live:</strong> When testing is concluded and you switch the toggle to Live Mode, new customer checkouts will automatically charge real cards in Euros.
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </>
             )}

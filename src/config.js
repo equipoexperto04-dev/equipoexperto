@@ -4,8 +4,7 @@ const fromEnv = typeof import.meta.env.VITE_API_URL === 'string'
     : '';
 
 const DEV_DEFAULT = 'http://localhost:5000';
-/** If VITE_API_URL is missing in production, relative URLs like /auth/login hit the static host and fail. */
-const PROD_DEFAULT = 'https://api.equipoexperto.com';
+const PROD_DEFAULT = 'https://equipo-experto.onrender.com';
 
 const API_URL = fromEnv || (import.meta.env.DEV ? DEV_DEFAULT : PROD_DEFAULT);
 

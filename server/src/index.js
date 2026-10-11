@@ -560,7 +560,21 @@ const runMigrations = async () => {
         await safeQuery('lead_capture.whatsapp_enabled',      `ALTER TABLE lead_capture_settings ADD COLUMN IF NOT EXISTS whatsapp_enabled BOOLEAN DEFAULT TRUE`);
         await safeQuery('lead_capture.email_enabled',         `ALTER TABLE lead_capture_settings ADD COLUMN IF NOT EXISTS email_enabled BOOLEAN DEFAULT TRUE`);
 
-        console.log('âœ… Startup migrations & performance indices verified.');
+        // system_settings table for platform toggles (e.g. stripe_mode)
+        await safeQuery('system_settings_table', `
+            CREATE TABLE IF NOT EXISTS system_settings (
+                key VARCHAR(100) PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+        await safeQuery('system_settings.stripe_mode_default', `
+            INSERT INTO system_settings (key, value)
+            VALUES ('stripe_mode', 'test')
+            ON CONFLICT (key) DO NOTHING
+        `);
+
+        console.log('Startup migrations & performance indices verified.');
         
         // Finalize Startup
         startServer();

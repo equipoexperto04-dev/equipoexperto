@@ -16,10 +16,14 @@ router.get('/users', getAdminUsers);
 router.patch('/users/:id/status', express.json(), updateUserStatus);
 
 import { getAdminTickets, updateTicketStatus, deleteTicket } from '../controllers/supportTicketController.js';
+import { getStripeSettings, updateStripeMode } from '../controllers/adminSettingsController.js';
 
 router.get('/tickets', getAdminTickets);
 router.patch('/tickets/:id/status', express.json(), updateTicketStatus);
 router.delete('/tickets/:id', deleteTicket);
+
+router.get('/settings/stripe', getStripeSettings);
+router.patch('/settings/stripe', express.json(), updateStripeMode);
 
 export default router;
 
