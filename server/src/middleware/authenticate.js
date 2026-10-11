@@ -45,4 +45,5 @@ const authenticate = (req, res, next) => {
     }
 };
 
+export { authenticate, authenticate as authenticateToken };
 export default authenticate;

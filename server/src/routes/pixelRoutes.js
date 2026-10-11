@@ -1,6 +1,6 @@
 import express from 'express';
 import { getPixelSettings, updatePixelSettings, getPublicPixels } from '../controllers/pixelSettingsController.js';
-import { authenticateToken } from '../middleware/authMiddleware.js';
+import authenticateToken from '../middleware/authenticate.js';
 
 const router = express.Router();
 

@@ -1,6 +1,6 @@
 import express from 'express';
 import { getEmployeeMetricsSummary, logQrScan } from '../controllers/employeeMetricsController.js';
-import { authenticateToken } from '../middleware/authMiddleware.js';
+import authenticateToken from '../middleware/authenticate.js';
 
 const router = express.Router();
 
