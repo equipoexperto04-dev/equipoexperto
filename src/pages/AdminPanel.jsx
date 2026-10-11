@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Server, Activity, ShieldAlert, Loader2, LifeBuoy, CheckCircle2, Clock, AlertTriangle, Eye, Trash2, X, RefreshCw, CreditCard, Lock, ShieldCheck, Copy, Check } from 'lucide-react';
+import { Users, Server, Activity, ShieldAlert, Loader2, LifeBuoy, CheckCircle2, Clock, AlertTriangle, Eye, Trash2, X, RefreshCw, CreditCard, Lock, ShieldCheck, Copy, Check, FlaskConical, Zap } from 'lucide-react';
 import ToggleSwitch from '../components/ToggleSwitch';
 import { get, patch, del } from '../utils/api.js';
 import { useToast } from '../components/Toast';
@@ -33,6 +33,7 @@ const AdminPanel = () => {
     const [loadingStripe, setLoadingStripe] = useState(false);
     const [togglingStripe, setTogglingStripe] = useState(false);
     const [copiedCard, setCopiedCard] = useState(false);
+    const [showLiveConfirmModal, setShowLiveConfirmModal] = useState(false);
 
     const fetchStripeSettings = async () => {
         setLoadingStripe(true);
@@ -48,19 +49,25 @@ const AdminPanel = () => {
         }
     };
 
-    const handleToggleStripeMode = async () => {
-        const targetMode = stripeSettings.mode === 'live' ? 'test' : 'live';
-
+    const handleSelectMode = (targetMode) => {
+        if (targetMode === stripeSettings.mode) return;
         if (targetMode === 'live') {
-            const confirmed = window.confirm(
-                '⚠️ ACTIVATE STRIPE LIVE MODE?\n\n' +
-                'Real payments will be processed and customer credit cards will be billed actual funds.\n\n' +
-                'Note: Subscriptions created in test mode will not be recognized in live mode.\n\n' +
-                'Do you want to switch to LIVE MODE now?'
-            );
-            if (!confirmed) return;
+            setShowLiveConfirmModal(true);
+        } else {
+            executeSwitchStripeMode('test');
         }
+    };
 
+    const handleToggleStripeMode = () => {
+        if (stripeSettings.mode === 'test') {
+            setShowLiveConfirmModal(true);
+        } else {
+            executeSwitchStripeMode('test');
+        }
+    };
+
+    const executeSwitchStripeMode = async (targetMode) => {
+        setShowLiveConfirmModal(false);
         setTogglingStripe(true);
         try {
             const data = await patch('/api/admin/settings/stripe', { mode: targetMode });
@@ -557,50 +564,156 @@ const AdminPanel = () => {
                         </div>
                     </div>
 
-                    {/* Mode Toggle Control Card */}
+                    {/* Segmented Mode Selector Card */}
                     <div className="glass-card mb-8 animate-fade-in" style={{ padding: '1.75rem', border: '1px solid var(--border-color)', borderRadius: '1rem', background: 'var(--bg-secondary)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem' }}>
-                            <div style={{ maxWidth: '600px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                                    <h3 className="text-xl font-bold m-0">Payment Gateway Mode</h3>
-                                    <span
-                                        className="badge"
-                                        style={{
-                                            padding: '0.25rem 0.75rem',
-                                            borderRadius: '9999px',
-                                            fontSize: '0.75rem',
-                                            fontWeight: 800,
-                                            background: stripeSettings.mode === 'live' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                                            color: stripeSettings.mode === 'live' ? '#10b981' : '#f59e0b',
-                                            border: stripeSettings.mode === 'live' ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(245, 158, 11, 0.3)',
-                                        }}
-                                    >
-                                        {stripeSettings.mode === 'live' ? 'LIVE (Real Billing)' : 'TEST (Sandbox)'}
-                                    </span>
-                                </div>
-                                <p className="text-secondary text-sm m-0">
-                                    Toggle between <strong>Test Mode</strong> (safe sandbox testing with test cards) and <strong>Live Mode</strong> (processes real credit cards and bills actual customers).
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '1.25rem' }}>
+                            <div>
+                                <h3 className="text-xl font-bold m-0" style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                                    <span>Payment Gateway Mode</span>
+                                </h3>
+                                <p className="text-secondary text-sm m-0" style={{ marginTop: '0.375rem' }}>
+                                    Select which Stripe environment your application processes checkouts with:
                                 </p>
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                <span style={{ fontSize: '0.875rem', fontWeight: 600, color: stripeSettings.mode === 'test' ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                                    Test Mode
-                                </span>
-                                <ToggleSwitch
-                                    id="stripe-mode-toggle"
-                                    checked={stripeSettings.mode === 'live'}
-                                    onChange={handleToggleStripeMode}
-                                    disabled={togglingStripe || loadingStripe}
-                                />
-                                <span style={{ fontSize: '0.875rem', fontWeight: 700, color: stripeSettings.mode === 'live' ? '#10b981' : 'var(--text-secondary)' }}>
-                                    Live Mode
-                                </span>
+                            {/* Unambiguous Segmented Buttons */}
+                            <div
+                                style={{
+                                    display: 'inline-flex',
+                                    padding: '0.375rem',
+                                    borderRadius: '0.875rem',
+                                    background: 'var(--bg-primary, #0f172a)',
+                                    border: '1px solid var(--border-color)',
+                                    gap: '0.5rem',
+                                    boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.1)',
+                                }}
+                            >
+                                {/* TEST MODE BUTTON */}
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelectMode('test')}
+                                    disabled={togglingStripe}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        padding: '0.625rem 1.25rem',
+                                        borderRadius: '0.625rem',
+                                        border: stripeSettings.mode === 'test' ? '1px solid #f59e0b' : '1px solid transparent',
+                                        background: stripeSettings.mode === 'test' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 'transparent',
+                                        color: stripeSettings.mode === 'test' ? '#ffffff' : 'var(--text-secondary)',
+                                        fontWeight: stripeSettings.mode === 'test' ? 800 : 600,
+                                        fontSize: '0.875rem',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        boxShadow: stripeSettings.mode === 'test' ? '0 4px 14px rgba(245, 158, 11, 0.4)' : 'none',
+                                    }}
+                                >
+                                    <FlaskConical size={18} />
+                                    <span>Test Mode (Sandbox)</span>
+                                    {stripeSettings.mode === 'test' && (
+                                        <span style={{ fontSize: '0.65rem', fontWeight: 800, background: 'rgba(0,0,0,0.3)', padding: '0.15rem 0.45rem', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            ACTIVE
+                                        </span>
+                                    )}
+                                </button>
+
+                                {/* LIVE MODE BUTTON */}
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelectMode('live')}
+                                    disabled={togglingStripe}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        padding: '0.625rem 1.25rem',
+                                        borderRadius: '0.625rem',
+                                        border: stripeSettings.mode === 'live' ? '1px solid #10b981' : '1px solid transparent',
+                                        background: stripeSettings.mode === 'live' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
+                                        color: stripeSettings.mode === 'live' ? '#ffffff' : 'var(--text-secondary)',
+                                        fontWeight: stripeSettings.mode === 'live' ? 800 : 600,
+                                        fontSize: '0.875rem',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        boxShadow: stripeSettings.mode === 'live' ? '0 4px 14px rgba(16, 185, 129, 0.4)' : 'none',
+                                    }}
+                                >
+                                    <Zap size={18} />
+                                    <span>Live Mode (Real Payments)</span>
+                                    {stripeSettings.mode === 'live' && (
+                                        <span style={{ fontSize: '0.65rem', fontWeight: 800, background: 'rgba(0,0,0,0.3)', padding: '0.15rem 0.45rem', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            ACTIVE
+                                        </span>
+                                    )}
+                                </button>
                             </div>
                         </div>
 
+                        {/* Unmistakable Status Banner */}
+                        <div
+                            style={{
+                                padding: '1.125rem 1.25rem',
+                                borderRadius: '0.75rem',
+                                background: stripeSettings.mode === 'live' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                                border: stripeSettings.mode === 'live' ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(245, 158, 11, 0.35)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                flexWrap: 'wrap',
+                                gap: '1rem',
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+                                <div
+                                    style={{
+                                        width: '40px',
+                                        height: '40px',
+                                        borderRadius: '50%',
+                                        background: stripeSettings.mode === 'live' ? '#10b981' : '#f59e0b',
+                                        color: '#ffffff',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        flexShrink: 0,
+                                        boxShadow: stripeSettings.mode === 'live' ? '0 0 12px rgba(16, 185, 129, 0.4)' : '0 0 12px rgba(245, 158, 11, 0.4)',
+                                    }}
+                                >
+                                    {stripeSettings.mode === 'live' ? <Zap size={20} /> : <FlaskConical size={20} />}
+                                </div>
+                                <div>
+                                    <div style={{ fontWeight: 900, fontSize: '0.95rem', color: stripeSettings.mode === 'live' ? '#10b981' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <span>
+                                            {stripeSettings.mode === 'live'
+                                                ? 'CURRENT STATUS: LIVE PRODUCTION MODE IS ACTIVE'
+                                                : 'CURRENT STATUS: SANDBOX TEST MODE IS ACTIVE'}
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginTop: '0.2rem', lineHeight: '1.4' }}>
+                                        {stripeSettings.mode === 'live'
+                                            ? 'Real credit cards will be billed actual funds in EUR (€). All checkouts go directly to your live Stripe account.'
+                                            : 'Safe sandbox environment. Test cards (e.g. 4242 4242 4242 4242) are accepted. Zero actual charges.'}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <span
+                                style={{
+                                    fontSize: '0.75rem',
+                                    fontWeight: 800,
+                                    padding: '0.4rem 0.85rem',
+                                    borderRadius: '0.5rem',
+                                    background: stripeSettings.mode === 'live' ? '#10b981' : '#f59e0b',
+                                    color: '#ffffff',
+                                    letterSpacing: '0.04em',
+                                }}
+                            >
+                                {stripeSettings.mode === 'live' ? 'READY FOR REAL CUSTOMERS' : 'SAFE FOR TESTING'}
+                            </span>
+                        </div>
+
                         {togglingStripe && (
-                            <div className="flex items-center gap-2 mt-4 text-xs text-accent" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>
+                            <div className="flex items-center gap-2 text-xs text-accent" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>
                                 <Loader2 size={16} className="animate-spin" />
                                 <span>Switching payment gateway mode...</span>
                             </div>
@@ -747,6 +860,174 @@ const AdminPanel = () => {
                                     Save Notes
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* IN-UI CONFIRMATION MODAL FOR ACTIVATING STRIPE LIVE MODE */}
+            {showLiveConfirmModal && (
+                <div
+                    className="support-modal-backdrop animate-fade-in"
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        background: 'rgba(0, 0, 0, 0.75)',
+                        backdropFilter: 'blur(6px)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 9999,
+                        padding: '1rem',
+                    }}
+                    onClick={() => setShowLiveConfirmModal(false)}
+                >
+                    <div
+                        className="support-modal-card animate-scale-up"
+                        style={{
+                            maxWidth: '480px',
+                            width: '100%',
+                            background: 'var(--bg-primary, #1e293b)',
+                            borderRadius: '1rem',
+                            border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                            overflow: 'hidden',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div
+                            style={{
+                                padding: '1.25rem 1.5rem',
+                                borderBottom: '1px solid var(--border-color)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div
+                                    style={{
+                                        width: '38px',
+                                        height: '38px',
+                                        borderRadius: '50%',
+                                        background: 'rgba(245, 158, 11, 0.15)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: '#f59e0b',
+                                    }}
+                                >
+                                    <AlertTriangle size={22} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                        Activate Stripe Live Mode?
+                                    </h3>
+                                    <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 700 }}>
+                                        Production Payment Switch
+                                    </span>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowLiveConfirmModal(false)}
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--text-secondary)',
+                                    cursor: 'pointer',
+                                    padding: '0.25rem',
+                                    borderRadius: '0.375rem',
+                                }}
+                                aria-label="Close modal"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div style={{ padding: '1.5rem' }}>
+                            <p style={{ margin: '0 0 1rem', fontSize: '0.925rem', lineHeight: '1.5', color: 'var(--text-secondary)' }}>
+                                Real payments will be processed and customer credit cards will be billed actual funds in <strong>Euros (€)</strong>.
+                            </p>
+
+                            <div
+                                style={{
+                                    padding: '0.875rem 1rem',
+                                    borderRadius: '0.625rem',
+                                    background: 'rgba(245, 158, 11, 0.08)',
+                                    border: '1px solid rgba(245, 158, 11, 0.25)',
+                                    marginBottom: '1.25rem',
+                                }}
+                            >
+                                <div style={{ display: 'flex', gap: '0.625rem', alignItems: 'flex-start' }}>
+                                    <AlertTriangle size={18} style={{ color: '#f59e0b', flexShrink: 0, marginTop: '2px' }} />
+                                    <p style={{ margin: 0, fontSize: '0.825rem', color: 'var(--text-primary)', lineHeight: '1.45' }}>
+                                        <strong>Note:</strong> Subscriptions and customer accounts created in <em>Test Mode</em> will not be recognized in <em>Live Mode</em>.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                Do you want to switch to <strong>LIVE MODE</strong> now?
+                            </p>
+                        </div>
+
+                        <div
+                            style={{
+                                padding: '1rem 1.5rem',
+                                background: 'var(--bg-secondary, rgba(0, 0, 0, 0.2))',
+                                borderTop: '1px solid var(--border-color)',
+                                display: 'flex',
+                                justifyContent: 'flex-end',
+                                gap: '0.75rem',
+                            }}
+                        >
+                            <button
+                                type="button"
+                                onClick={() => setShowLiveConfirmModal(false)}
+                                style={{
+                                    padding: '0.625rem 1.25rem',
+                                    borderRadius: '0.5rem',
+                                    border: '1px solid var(--border-color, rgba(255, 255, 255, 0.2))',
+                                    background: 'transparent',
+                                    color: 'var(--text-primary)',
+                                    fontWeight: 600,
+                                    fontSize: '0.875rem',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                disabled={togglingStripe}
+                                onClick={() => executeSwitchStripeMode('live')}
+                                style={{
+                                    padding: '0.625rem 1.25rem',
+                                    borderRadius: '0.5rem',
+                                    border: 'none',
+                                    background: '#10b981',
+                                    color: '#ffffff',
+                                    fontWeight: 700,
+                                    fontSize: '0.875rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                                }}
+                            >
+                                {togglingStripe ? (
+                                    <>
+                                        <Loader2 size={16} className="animate-spin" />
+                                        <span>Switching...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle2 size={16} />
+                                        <span>OK, Switch to Live Mode</span>
+                                    </>
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>
