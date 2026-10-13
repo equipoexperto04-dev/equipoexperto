@@ -95,13 +95,30 @@ export const getContactFormStatus = async (_req, res) => {
  */
 export const submitContactForm = async (req, res) => {
     try {
-        const { name, email, message } = req.body;
+        const { name, email, message, hearAboutUs, referralSource, referral_source } = req.body;
 
         if (!name || !email || !message) {
             return res.status(400).json({ success: false, message: 'Please provide name, email and message.' });
         }
 
-        console.log(`[submitContactForm] New message from ${name} (${email})`);
+        const referral = String(hearAboutUs || referralSource || referral_source || '').trim();
+        console.log(`[submitContactForm] New message from ${name} (${email})${referral ? ` [Found via: ${referral}]` : ''}`);
+
+        // Persist contact form submission to support_tickets table so it shows up in Admin Panel / DB
+        try {
+            await pool.query(
+                `INSERT INTO support_tickets (name, email, subject, message, priority, source, status, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, 'medium', 'contact_form', 'open', NOW(), NOW())`,
+                [
+                    name,
+                    email,
+                    referral ? `Contact Inquiry (${referral})` : 'Contact Form Inquiry',
+                    referral ? `${message}\n\n[How they found us: ${referral}]` : message,
+                ]
+            );
+        } catch (dbErr) {
+            console.warn('[submitContactForm] DB ticket save skipped:', dbErr.message);
+        }
 
         if (!(await isContactFormMailConfigured())) {
             console.error(
@@ -121,7 +138,13 @@ export const submitContactForm = async (req, res) => {
                 : 'Equipo Experto contact form';
 
         const toEmail = getContactFormInbox();
-        const result = await sendContactFormNotification({ name, email, message, source });
+        const result = await sendContactFormNotification({ 
+            name, 
+            email, 
+            message, 
+            source,
+            hearAboutUs: referral 
+        });
         console.log(
             `[submitContactForm] ✅ Email sent via ${result.provider} → ${toEmail}`,
         );

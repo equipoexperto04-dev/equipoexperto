@@ -314,9 +314,9 @@ export async function isContactFormMailConfigured() {
     return userIds.length > 0;
 }
 
-function buildMailPayload({ name, email, message, source }) {
+function buildMailPayload({ name, email, message, source, hearAboutUs }) {
     const to = getContactFormInbox();
-    const built = buildContactFormEmail({ name, email, message, source });
+    const built = buildContactFormEmail({ name, email, message, source, hearAboutUs });
     return {
         to,
         mailOptions: {
@@ -336,8 +336,8 @@ function buildMailPayload({ name, email, message, source }) {
  * Contact form delivery: env Gmail OAuth, env SMTP (EMAIL_USER), then connected Google accounts.
  * Inbox: CONTACT_FORM_TO (default equipoexpertoia@gmail.com).
  */
-export async function sendContactFormNotification({ name, email, message, source }) {
-    const { mailOptions } = buildMailPayload({ name, email, message, source });
+export async function sendContactFormNotification({ name, email, message, source, hearAboutUs }) {
+    const { mailOptions } = buildMailPayload({ name, email, message, source, hearAboutUs });
     return sendViaGmailApi(mailOptions);
 }
 

@@ -2387,6 +2387,7 @@
 }
 
 .form-group-v2 input,
+.form-group-v2 select,
 .form-group-v2 textarea {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
@@ -2398,12 +2399,45 @@
     transition: all 0.2s;
 }
 
+.form-group-v2 select {
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1.25rem;
+    padding-right: 2.75rem;
+}
+
+.form-group-v2 select option {
+    background: var(--bg-card, #111827);
+    color: var(--text-primary, #ffffff);
+}
+
 .form-group-v2 input:focus,
+.form-group-v2 select:focus,
 .form-group-v2 textarea:focus {
     outline: none;
     border-color: var(--accent-color);
     box-shadow: 0 0 0 3px var(--accent-light);
     background: var(--bg-card);
+}
+
+.contact-other-input {
+    margin-top: 0.5rem;
+    animation: contactFadeIn 0.22s ease-out;
+}
+
+@keyframes contactFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .contact-submit-btn {
