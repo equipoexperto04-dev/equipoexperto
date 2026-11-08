@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Bot, RefreshCw } from 'lucide-react';
+import { Star, Bot, RefreshCw, ArrowRight } from 'lucide-react';
 import { useTranslation } from '../../context/LanguageContext';
 import { createSanitizedHtml } from '../../utils/sanitizeHtml';
 
@@ -75,6 +75,26 @@ const FeatureSection = () => {
                             </article>
                         );
                     })}
+                </div>
+
+                <div className="landing-cap-footer" style={{ textAlign: 'center', marginTop: '3rem' }}>
+                    <a
+                        href="/dashboard/employee-gallery"
+                        className="btn-secondary landing-cap-library-cta"
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.65rem',
+                            padding: '0.85rem 1.75rem',
+                            borderRadius: '9999px',
+                            fontWeight: 700,
+                            fontSize: '0.95rem',
+                            textDecoration: 'none',
+                        }}
+                    >
+                        <span>{t('viewLibrary') || 'View full library'}</span>
+                        <ArrowRight size={18} />
+                    </a>
                 </div>
             </div>
         </section>

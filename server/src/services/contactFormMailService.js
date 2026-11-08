@@ -342,9 +342,9 @@ export async function sendContactFormNotification({ name, email, message, source
 }
 
 /**
- * Transactional platform mail without SMTP fallback.
- * Order: env Gmail OAuth, then connected Google integrations.
+ * Transactional platform mail with SMTP fallback.
+ * Order: env Gmail OAuth, connected Google integrations, then SMTP credentials.
  */
 export async function sendPlatformTransactionalMail(mailOptions) {
-    return sendViaGmailApi(mailOptions, { includeSmtp: false });
+    return sendViaGmailApi(mailOptions, { includeSmtp: true });
 }

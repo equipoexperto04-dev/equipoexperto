@@ -1076,9 +1076,7 @@ export const sendLeadEmail = async (req, res) => {
         console.error('[sendLeadEmail] Error:', err.message);
         return res.status(502).json({
             success: false,
-            message: err.message?.includes('reconnect') || err.message?.includes('configured')
-                ? err.message
-                : 'Failed to send email. Check your email integration in Settings.',
+            message: err.message || 'Failed to send email. Check your email integration in Dashboard → Integrations.',
         });
     }
 };

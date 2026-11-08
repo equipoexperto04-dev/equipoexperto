@@ -141,7 +141,8 @@ const EmailComposerModal = ({ leadId, to, recipientName, onClose, onSend }) => {
 
             const res = await fetch(endpoint, {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                credentials: 'include',
                 body: formData,
             });
 

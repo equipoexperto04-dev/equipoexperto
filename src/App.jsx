@@ -42,6 +42,7 @@ const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 const Optimization = lazy(() => import('./pages/Optimization'));
 const ContentReviews = lazy(() => import('./pages/ContentReviews'));
 const ReviewBooster = lazy(() => import('./pages/ReviewBooster'));
+const Logs = lazy(() => import('./pages/Logs'));
 
 const VALID_WIZARD_GOALS = new Set(['review', 'capture', 'followup']);
 
@@ -113,6 +114,7 @@ function App() {
                                             <Route path="config/lead-capture" element={<LeadCapture />} />
                                             <Route path="config/lead-followup" element={<LeadFollowUp />} />
                                             <Route path="integrations" element={<Integrations />} />
+                                            <Route path="logs" element={<Logs />} />
                                             <Route path="leads" element={<Leads />} />
                                             <Route path="admin/users" element={<AdminPanel />} />
                                             <Route path="admin/errors" element={<AdminErrors />} />

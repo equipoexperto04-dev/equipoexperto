@@ -42,6 +42,7 @@ export default function WizardFollowupMessages({
     /** Optional pills: [{ key: '{NAME}', label: 'Name' }, ...] */
     messageVariables,
     onInsertVariable,
+    onCursorChange,
     showHeader = true,
 }) {
     const { t } = useTranslation();
@@ -107,6 +108,9 @@ export default function WizardFollowupMessages({
                                 placeholder={t('wizFollowupMsgPlaceholder')}
                                 value={step.text}
                                 onChange={(e) => onMessageChange(step.id, e.target.value)}
+                                onSelect={(e) => onCursorChange?.(step.id, e.target.selectionStart, e.target.selectionEnd)}
+                                onClick={(e) => onCursorChange?.(step.id, e.target.selectionStart, e.target.selectionEnd)}
+                                onKeyUp={(e) => onCursorChange?.(step.id, e.target.selectionStart, e.target.selectionEnd)}
                             />
                             <div className="wiz-fu-msg-footer">
                                 <div className="wiz-fu-msg-footer-start">
@@ -120,6 +124,10 @@ export default function WizardFollowupMessages({
                                                     className="wiz-fu-var-pill"
                                                     onMouseDown={(e) => {
                                                         e.preventDefault(); // keep textarea focus & caret position
+                                                        onInsertVariable(step.id, v.key);
+                                                    }}
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
                                                         onInsertVariable(step.id, v.key);
                                                     }}
                                                 >

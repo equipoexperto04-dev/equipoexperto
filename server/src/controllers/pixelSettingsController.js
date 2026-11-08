@@ -21,6 +21,12 @@ export const getPixelSettings = async (req, res) => {
             }
         });
     } catch (err) {
+        if (err.code === '42703') {
+            return res.json({
+                success: true,
+                data: { facebookPixelId: '', chatgptPixelScript: '' }
+            });
+        }
         console.error('Error fetching pixel settings:', err);
         return res.status(500).json({ success: false, message: 'Failed to load pixel settings' });
     }
@@ -35,12 +41,27 @@ export const updatePixelSettings = async (req, res) => {
         const userId = req.user.id;
         const { facebookPixelId, chatgptPixelScript } = req.body;
 
-        await pool.query(
-            `UPDATE users 
-             SET facebook_pixel_id = $1, chatgpt_pixel_script = $2, updated_at = NOW()
-             WHERE id = $3`,
-            [facebookPixelId || '', chatgptPixelScript || '', userId]
-        );
+        try {
+            await pool.query(
+                `UPDATE users 
+                 SET facebook_pixel_id = $1, chatgpt_pixel_script = $2, updated_at = NOW()
+                 WHERE id = $3`,
+                [facebookPixelId || '', chatgptPixelScript || '', userId]
+            );
+        } catch (dbErr) {
+            if (dbErr.code === '42703') {
+                await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS facebook_pixel_id VARCHAR(100)`);
+                await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS chatgpt_pixel_script TEXT`);
+                await pool.query(
+                    `UPDATE users 
+                     SET facebook_pixel_id = $1, chatgpt_pixel_script = $2, updated_at = NOW()
+                     WHERE id = $3`,
+                    [facebookPixelId || '', chatgptPixelScript || '', userId]
+                );
+            } else {
+                throw dbErr;
+            }
+        }
 
         return res.json({
             success: true,
@@ -48,7 +69,7 @@ export const updatePixelSettings = async (req, res) => {
         });
     } catch (err) {
         console.error('Error saving pixel settings:', err);
-        return res.status(500).json({ success: false, message: 'Failed to update pixel settings' });
+        return res.status(500).json({ success: false, message: 'Failed to update pixel settings: ' + (err.message || 'Database error') });
     }
 };
 

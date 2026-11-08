@@ -619,7 +619,10 @@ export const providerCallback = async (req, res) => {
 
         if (error) {
             console.error(`[${provider} OAuth Error]:`, error);
-            return res.redirect(`${frontendRedirect}?error=oauth_failed`);
+            const errParam = (error === 'access_denied' || String(error).toLowerCase().includes('denied'))
+                ? 'google_unverified'
+                : 'oauth_failed';
+            return res.redirect(`${frontendRedirect}?error=${errParam}&details=${encodeURIComponent(String(error))}`);
         }
 
         if (!code || !state) {

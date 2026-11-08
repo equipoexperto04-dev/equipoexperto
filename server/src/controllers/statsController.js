@@ -49,7 +49,7 @@ export const getDashboardStats = async (req, res) => {
             ),
             // 5. Recipe Config
             pool.query(
-                `SELECT is_active, lead_capture_active, google_review_url,
+                `SELECT is_active, lead_capture_active, google_review_url, automation_id,
                     COALESCE(review_next_step_done, FALSE) AS review_next_step_done,
                     COALESCE(capture_next_step_done, FALSE) AS capture_next_step_done
                  FROM review_funnel_settings WHERE user_id = $1`,
@@ -218,6 +218,7 @@ export const getDashboardStats = async (req, res) => {
                 leadCapture: leadCaptureConfigured,
                 leadFollowUp: leadFollowUpConfigured,
             },
+            reviewAutomationId: rfRow?.automation_id || null,
             lastTriggers: {
                 reviewFunnel: revTriggerRes.rows[0]?.last_active || null,
                 leadCapture: captureTriggerRes.rows[0]?.last_active || null,
@@ -387,14 +388,14 @@ export const getEmployeeActivityStatus = async (req, res) => {
                     SELECT COUNT(*) as count FROM activity_logs 
                     WHERE user_id = $1 
                     AND trigger_type IN ('Feedback Received', 'Customer Review') 
-                    AND metadata::jsonb->>'source' = 'qr'
+                    AND (metadata::jsonb->>'source' = 'qr' OR automation_name IN ('Survey Funnel', 'Review Funnel'))
                 `, [userId]),
                 pool.query(`
                     SELECT COUNT(*) as count FROM activity_logs 
                     WHERE user_id = $1 
-                    AND trigger_type = 'Customer Review' 
+                    AND trigger_type IN ('Customer Review', 'Feedback Received') 
                     AND status = 'Success' 
-                    AND metadata::jsonb->>'source' = 'qr'
+                    AND (metadata::jsonb->>'source' = 'qr' OR automation_name IN ('Survey Funnel', 'Review Funnel'))
                 `, [userId]),
                 pool.query(`
                     SELECT (

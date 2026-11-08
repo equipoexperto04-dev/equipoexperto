@@ -228,6 +228,7 @@
     border-bottom: 1px solid var(--border-color);
     transition: all 0.2s ease;
     font-size: 0.875rem;
+    color: var(--text-primary);
 }
 
 .activity-table td:last-child {
@@ -256,6 +257,18 @@
     opacity: 0.7;
 }
 
+.channel-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
 .log-status-badge {
     display: inline-flex;
     align-items: center;
@@ -269,13 +282,48 @@
 }
 
 .log-status-badge.success {
-    background: rgba(34, 197, 94, 0.1);
+    background: rgba(34, 197, 94, 0.12);
     color: #16a34a;
 }
 
 .log-status-badge.error {
-    background: rgba(239, 68, 68, 0.1);
+    background: rgba(239, 68, 68, 0.12);
     color: #dc2626;
+}
+
+.log-status-badge.attention {
+    background: rgba(245, 158, 11, 0.12);
+    color: #d97706;
+}
+
+/* ── Dark Mode Contrast Accessibility (Issue #19) ── */
+.dark .activity-table td,
+[data-theme="dark"] .activity-table td {
+    color: #f3f4f6 !important;
+}
+
+.dark .channel-badge,
+[data-theme="dark"] .channel-badge {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f3f4f6 !important;
+}
+
+.dark .log-status-badge.success,
+[data-theme="dark"] .log-status-badge.success {
+    background: rgba(34, 197, 94, 0.22);
+    color: #4ade80 !important;
+}
+
+.dark .log-status-badge.error,
+[data-theme="dark"] .log-status-badge.error {
+    background: rgba(239, 68, 68, 0.22);
+    color: #f87171 !important;
+}
+
+.dark .log-status-badge.attention,
+[data-theme="dark"] .log-status-badge.attention {
+    background: rgba(245, 158, 11, 0.22);
+    color: #fbbf24 !important;
 }
 
 @media (max-width: 768px) {

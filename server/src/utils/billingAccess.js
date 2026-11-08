@@ -39,12 +39,15 @@ export function enrichUserForClient(user) {
     if (!user || typeof user !== 'object') return user;
     const is_admin = isAdminUser(user);
     const billing = resolveBillingForEntitlements(user, user.plan, user.trial_ends_at);
+    const hasPassword = Boolean(user.has_password ?? (user.password_hash && user.password_hash.length > 5));
     return {
         ...user,
         is_admin,
         plan: billing.plan,
         trial_ends_at: billing.trial_ends_at,
         has_dashboard_access: hasDashboardAccess(user),
+        has_password: hasPassword,
+        auth_provider: hasPassword ? 'local' : 'google',
     };
 }
 
@@ -53,12 +56,15 @@ export function enrichUserForNewSignup(user) {
     if (!user || typeof user !== 'object') return user;
     const is_admin = isAdminUser(user);
     const billing = resolveBillingForEntitlements(user, user.plan, user.trial_ends_at);
+    const hasPassword = Boolean(user.has_password ?? (user.password_hash && user.password_hash.length > 5));
     return {
         ...user,
         is_admin,
         plan: billing.plan,
         trial_ends_at: billing.trial_ends_at,
         has_dashboard_access: hasDashboardAccessForNewSignup(user),
+        has_password: hasPassword,
+        auth_provider: hasPassword ? 'local' : 'google',
     };
 }
 

@@ -51,9 +51,9 @@ const Settings = () => {
         const fetchPixelSettings = async () => {
             try {
                 const token = localStorage.getItem('token');
-                if (!token) return;
                 const res = await fetch(`${API_URL}/api/pixels/settings`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'include',
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : {}
                 });
                 const data = await res.json();
                 if (data.success && data.data) {
@@ -74,9 +74,10 @@ const Settings = () => {
             const token = localStorage.getItem('token');
             const res = await fetch(`${API_URL}/api/pixels/settings`, {
                 method: 'PUT',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                 },
                 body: JSON.stringify({ facebookPixelId, chatgptPixelScript })
             });
@@ -572,7 +573,7 @@ const Settings = () => {
             {/* Security section */}
             {activeTab === 'security' && (
                 <section id="security" className="settings-section">
-                    {(!user?.password_hash || user?.auth_provider === 'google') ? (
+                    {(user?.auth_provider === 'google' || user?.has_password === false) ? (
                         <div className="settings-card" style={{ padding: '2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                             <div style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '3rem', height: '3rem', borderRadius: '50%', background: 'rgba(59, 130, 246, 0.1)' }}>
                                 <Lock size={20} className="text-accent" />

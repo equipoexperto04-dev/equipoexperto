@@ -1287,6 +1287,8 @@
   "leadActionCall": "Call",
   "leadActionEmail": "Send email",
   "leadActionNoPhone": "This lead has no phone number.",
+  "leadActionCalling": "Initiating call to",
+  "phoneCopiedToClipboard": "phone number copied to clipboard",
   "leadActionNoEmail": "This lead has no email address.",
   "leadEmailSubject": "Message for {name}",
   "leadEmailSent": "Email sent successfully",

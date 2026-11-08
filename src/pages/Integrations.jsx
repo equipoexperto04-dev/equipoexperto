@@ -381,10 +381,21 @@ const Integrations = () => {
             setStatusMessage({ type: 'success', text: t('bridgeEstablished') });
             setTimeout(() => setStatusMessage(null), 5000);
         } else if (params.get('error')) {
-            const label = params.get('error').replace(/_/g, ' ');
-            const details = params.get('details') ? `: ${decodeURIComponent(params.get('details')).split('—')[0].trim()}` : '';
-            setStatusMessage({ type: 'error', text: `${t('connectionFailed', { error: label })}${details}` });
-            setTimeout(() => setStatusMessage(null), 10000);
+            const errCode = params.get('error');
+            if (errCode === 'google_unverified' || errCode === 'access_denied') {
+                setStatusMessage({
+                    type: 'error',
+                    text: tWithFallback(
+                        'googleUnverifiedMsg',
+                        'Google OAuth: App verification in progress by Google. To send emails immediately without restrictions, configure Business Mail (SMTP) below.'
+                    )
+                });
+            } else {
+                const label = errCode.replace(/_/g, ' ');
+                const details = params.get('details') ? `: ${decodeURIComponent(params.get('details')).split('—')[0].trim()}` : '';
+                setStatusMessage({ type: 'error', text: `${t('connectionFailed', { error: label })}${details}` });
+            }
+            setTimeout(() => setStatusMessage(null), 12000);
         }
         if (params.get('success') || params.get('error')) window.history.replaceState({}, document.title, location.pathname);
     }, [location]);

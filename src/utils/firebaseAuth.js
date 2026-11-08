@@ -15,7 +15,7 @@ export const shouldUseFirebaseEmailPassword =
   import.meta.env.VITE_USE_FIREBASE_EMAIL_PASSWORD === 'true'
 
 export const shouldRequireEmailVerification =
-  import.meta.env.VITE_REQUIRE_EMAIL_VERIFICATION === 'true'
+  import.meta.env.VITE_REQUIRE_EMAIL_VERIFICATION !== 'false'
 
 function ensureFirebaseConfigured() {
   if (!firebaseAuth) {

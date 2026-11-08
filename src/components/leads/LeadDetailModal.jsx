@@ -129,7 +129,20 @@ const LeadDetailModal = ({
             showToastMissing(t('leadActionNoPhone'));
             return;
         }
-        window.location.href = url;
+        if (navigator?.clipboard?.writeText && lead.phone) {
+            navigator.clipboard.writeText(lead.phone).catch(() => {});
+        }
+        const callingText = t('leadActionCalling') || 'Initiating call to';
+        const copiedText = t('phoneCopiedToClipboard') || 'copied to clipboard';
+        window.dispatchEvent(new CustomEvent('leads:toast', {
+            detail: {
+                message: `${callingText} ${lead.phone} (${copiedText})`,
+                type: 'success'
+            }
+        }));
+        try {
+            window.location.href = url;
+        } catch (_) {}
     };
 
     const openEmail = () => {

@@ -270,6 +270,7 @@ export const createCheckoutSession = async (req, res) => {
 
         const sessionParams = {
             mode: 'subscription',
+            payment_method_collection: 'always',
             line_items: [{ price: priceId, quantity: 1 }],
             success_url: `${frontend}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${frontend}/checkout/${priceKey}?cancelled=1${cancelContext === 'settings' ? '&from=settings' : ''}`,

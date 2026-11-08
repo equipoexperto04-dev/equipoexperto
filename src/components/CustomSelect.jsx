@@ -42,7 +42,7 @@ export default function CustomSelect({
         if (!open && rootRef.current) {
             const rect = rootRef.current.getBoundingClientRect();
             const spaceBelow = window.innerHeight - rect.bottom;
-            setOpenUp(spaceBelow < 180 && rect.top > spaceBelow);
+            setOpenUp(spaceBelow < 220 && rect.top > spaceBelow);
         }
         setOpen((prev) => !prev);
     };

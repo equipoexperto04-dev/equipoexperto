@@ -44,24 +44,26 @@ const ContactSection = () => {
             ? (formData.otherSource.trim() ? `Other: ${formData.otherSource.trim()}` : 'Other')
             : (formData.hearAboutUs || '');
 
-        // Issue #7: Prevent space-only submissions
-        if (!nameTrimmed || !emailTrimmed || !messageTrimmed) {
+        // Issue #7: Prevent space-only submissions and check min length
+        if (!nameTrimmed || nameTrimmed.length < 2 || !emailTrimmed || !messageTrimmed || messageTrimmed.length < 5) {
             setStatus('error');
             setErrorMessage(t('contactFormEmptySpaces') || 'Please fill in all fields with valid content.');
             return;
         }
 
-        // Issue #6: Strict email validation requiring valid domain dot
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailTrimmed)) {
+        // Issue #6: Strict email validation requiring valid domain dot and 2+ char TLD
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!emailRegex.test(emailTrimmed)) {
             setStatus('error');
             setErrorMessage(t('contactSalesEmailInvalid') || 'Please enter a valid email address.');
             return;
         }
 
-        // Issue #8: Prevent numeric-only or invalid character names
-        if (/^\d+$/.test(nameTrimmed)) {
+        // Issue #8: Prevent numeric-only or invalid character names (letters, spaces, accents, hyphens only)
+        const nameRegex = /^[a-zA-ZÀ-ÿ\u00f1\u00d1\s'.-]{2,60}$/;
+        if (!nameRegex.test(nameTrimmed) || !/[a-zA-ZÀ-ÿ\u00f1\u00d1]/.test(nameTrimmed)) {
             setStatus('error');
-            setErrorMessage(t('invalidNameFormat') || 'Name must contain letters.');
+            setErrorMessage(t('invalidNameFormat') || 'Name must only contain letters and valid characters.');
             return;
         }
 
@@ -136,9 +138,9 @@ const ContactSection = () => {
                                 </button>
                             </div>
                         ) : (
-                            <form className="contact-form-v2" onSubmit={handleSubmit}>
+                            <form className="contact-form-v2" onSubmit={handleSubmit} noValidate>
                                 <div className="form-group-v2">
-                                    <label><User size={14} /> {t('contactName')} <span className="text-red-500">*</span></label>
+                                    <label><User size={14} /> {t('contactName')} <span className="contact-required-marker" aria-hidden="true">*</span></label>
                                     <input 
                                         type="text" 
                                         name="name"
@@ -151,7 +153,7 @@ const ContactSection = () => {
                                 </div>
 
                                 <div className="form-group-v2">
-                                    <label><Mail size={14} /> {t('contactEmailLabel')} <span className="text-red-500">*</span></label>
+                                    <label><Mail size={14} /> {t('contactEmailLabel')} <span className="contact-required-marker" aria-hidden="true">*</span></label>
                                     <input 
                                         type="email" 
                                         name="email"
@@ -193,7 +195,7 @@ const ContactSection = () => {
                                 </div>
 
                                 <div className="form-group-v2">
-                                    <label><MessageCircle size={14} /> {t('contactMessage')} <span className="text-red-500">*</span></label>
+                                    <label><MessageCircle size={14} /> {t('contactMessage')} <span className="contact-required-marker" aria-hidden="true">*</span></label>
                                     <textarea 
                                         name="message"
                                         placeholder={t('contactMessagePlaceholder')}

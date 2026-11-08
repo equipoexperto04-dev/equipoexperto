@@ -1088,6 +1088,8 @@
   "leadActionCall": "Llamar",
   "leadActionEmail": "Enviar email",
   "leadActionNoPhone": "Este lead no tiene teléfono.",
+  "leadActionCalling": "Iniciando llamada a",
+  "phoneCopiedToClipboard": "número de teléfono copiado al portapapeles",
   "leadActionNoEmail": "Este lead no tiene email.",
   "leadEmailSubject": "Mensaje para {name}",
   "leadEmailSent": "Email enviado correctamente",

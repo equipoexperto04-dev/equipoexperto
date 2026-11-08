@@ -85,6 +85,7 @@ const LeadFollowUp = () => {
     const delayRef = useRef(null);
     const textareaRef = useRef(null);
     const followupRefs = useRef([]);
+    const cursorPositionsRef = useRef({});
 
     const [config, setConfig] = useState({
         is_active: false,
@@ -415,28 +416,53 @@ const LeadFollowUp = () => {
         }));
     };
 
+    const handleCursorChange = (stepId, start, end) => {
+        cursorPositionsRef.current[stepId || 'main'] = { start, end };
+    };
+
     const insertVariable = (variable, stepId = null) => {
         const textarea = stepId ? followupRefs.current[stepId] : textareaRef.current;
         if (!textarea) return;
 
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
+        const key = stepId || 'main';
+        const savedPos = cursorPositionsRef.current[key];
         const step = stepId
             ? timelineSteps.find((s) => s.id === stepId)
             : null;
-        const text = step ? step.text : '';
+        const text = step ? (step.text || '') : (textarea.value || '');
+
+        let start = (savedPos && typeof savedPos.start === 'number')
+            ? savedPos.start
+            : (typeof textarea.selectionStart === 'number' ? textarea.selectionStart : text.length);
+        let end = (savedPos && typeof savedPos.end === 'number')
+            ? savedPos.end
+            : (typeof textarea.selectionEnd === 'number' ? textarea.selectionEnd : start);
+
+        if (start < 0 || start > text.length) start = text.length;
+        if (end < start || end > text.length) end = start;
+
         const before = text.substring(0, start);
         const after = text.substring(end);
-
         const newMessage = before + variable + after;
+        const newPos = start + variable.length;
+
+        cursorPositionsRef.current[key] = { start: newPos, end: newPos };
+
         if (stepId) {
             handleFollowupMessageChange(stepId, newMessage);
         }
 
-        setTimeout(() => {
-            textarea.focus();
-            textarea.setSelectionRange(start + variable.length, start + variable.length);
-        }, 0);
+        // Synchronously update the DOM textarea to ensure immediate cursor placement
+        textarea.value = newMessage;
+        textarea.focus();
+        textarea.setSelectionRange(newPos, newPos);
+
+        requestAnimationFrame(() => {
+            if (textarea) {
+                textarea.focus();
+                textarea.setSelectionRange(newPos, newPos);
+            }
+        });
     };
 
     const addFollowup = () => {
@@ -562,6 +588,7 @@ const LeadFollowUp = () => {
                                         }}
                                         messageVariables={messageVariables}
                                         onInsertVariable={(stepId, key) => insertVariable(key, stepId)}
+                                        onCursorChange={handleCursorChange}
                                     />
                                 )}
                                 {timelineSteps.length === 0 && canAddMoreFollowupSteps(0, maxFollowupStepsUi) && (

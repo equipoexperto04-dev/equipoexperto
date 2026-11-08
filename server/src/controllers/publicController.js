@@ -360,6 +360,8 @@ export const submitFeedback = async (req, res) => {
             source,
         } = req.body;
 
+        const effectiveSource = (source || req.query.source || 'qr').toLowerCase();
+
         const lang = String(ui_language || '')
             .toLowerCase()
             .startsWith('es')
@@ -441,7 +443,7 @@ export const submitFeedback = async (req, res) => {
                     customer_email,
                     customer_phone,
                     filtering_responses: filtering_responses || {},
-                    source: source || null,
+                    source: effectiveSource,
                 }
             ]
         );

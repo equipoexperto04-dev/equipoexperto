@@ -236,6 +236,7 @@ const Dashboard = () => {
   const [activityStats, setActivityStats] = useState({});
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [printableEmployeeName, setPrintableEmployeeName] = useState('');
+  const [printableQrUrl, setPrintableQrUrl] = useState('');
 
   useEffect(() => {
     if (!dashSnapshot) return;
@@ -523,7 +524,12 @@ const Dashboard = () => {
                         className="dash-recipe-configure"
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                         onClick={() => {
+                          const reviewAid = dashSnapshot?.reviewAutomationId;
+                          const targetUrl = reviewAid
+                            ? `${window.location.origin}/f/${reviewAid}?source=qr`
+                            : `${window.location.origin}/f`;
                           setPrintableEmployeeName(empTitle);
+                          setPrintableQrUrl(targetUrl);
                           setIsQrModalOpen(true);
                         }}
                         title="Print high-res QR Code"
@@ -605,6 +611,7 @@ const Dashboard = () => {
         isOpen={isQrModalOpen}
         onClose={() => setIsQrModalOpen(false)}
         employeeName={printableEmployeeName}
+        qrUrl={printableQrUrl}
       />
     </div>
   );

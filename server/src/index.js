@@ -124,14 +124,17 @@ app.disable('x-powered-by');
 // RATE LIMITING
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// General API rate limit - 100 requests per 15 minutes per IP
+// Cookie parser for CSRF and JWT cookies (parsed early so auth tokens are accessible)
+app.use(cookieParser(process.env.COOKIE_SECRET || 'default-secret-change-in-production'));
+
+// General API rate limit - 1500 requests per 15 minutes per IP (exempts authenticated users)
 const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 1500,
     standardHeaders: true,
     legacyHeaders: false,
     message: { success: false, message: 'Too many requests. Please try again later.' },
-    skip: (req) => req.method === 'OPTIONS', // Skip preflight requests
+    skip: (req) => req.method === 'OPTIONS' || Boolean(getTokenFromRequest(req)), // Skip preflight & authenticated sessions
 });
 
 // Auth endpoint rate limit: 15 attempts per 5 minutes, skipping successful logins
@@ -145,9 +148,6 @@ const authLimiter = rateLimit({
 });
 
 app.use(generalLimiter);
-
-// Cookie parser for CSRF and JWT cookies
-app.use(cookieParser(process.env.COOKIE_SECRET || 'default-secret-change-in-production'));
 
 // CSRF protection - skip for public webhooks
 const csrfProtection = csrf({

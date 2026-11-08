@@ -7,7 +7,8 @@
   background: var(--bg-card);
   border-radius: 1.25rem;
   border: 1px solid var(--border-color);
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
   box-shadow: var(--shadow-md);
 }
 
@@ -72,7 +73,8 @@
   min-height: 44px;
 }
 
-.leads-export-btn {
+.leads-export-btn,
+.leads-import-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -81,6 +83,7 @@
   white-space: nowrap;
   padding: 0.55rem 1rem;
   border-radius: 0.65rem;
+  cursor: pointer;
 }
 
 .leads-table-empty-cell {
@@ -518,9 +521,13 @@
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.02em;
-  white-space: nowrap;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-word;
+  line-height: 1.3;
 }
 
 .lead-folder-card-count {

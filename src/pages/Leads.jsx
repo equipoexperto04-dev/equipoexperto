@@ -1062,12 +1062,19 @@ const Leads = () => {
                             ]}
                             onChange={(val) => setFilters({ ...filters, status: val })}
                         />
+                        <button
+                            type="button"
+                            onClick={() => setShowImportModal(true)}
+                            className="btn-secondary leads-import-btn"
+                        >
+                            <Upload size={16} /> {t('importExcelCSV')}
+                        </button>
                         <button type="button" onClick={exportLeads} className="btn-secondary leads-export-btn">
                             <Download size={16} /> {t('exportList')}
                         </button>
                     </div>
                 </div>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto" style={{ borderBottomLeftRadius: '1.25rem', borderBottomRightRadius: '1.25rem' }}>
                     <table className="leads-table leads-table--modern">
                         <thead>
                             <tr>

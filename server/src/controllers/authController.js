@@ -41,7 +41,7 @@ const isValidEmail = (email) => {
 };
 
 const isEmailVerificationRequired = () =>
-    String(process.env.AUTH_REQUIRE_EMAIL_VERIFICATION || '').trim().toLowerCase() === 'true';
+    String(process.env.AUTH_REQUIRE_EMAIL_VERIFICATION || 'true').trim().toLowerCase() !== 'false';
 
 const sendMailErrorResponse = (res, err, fallbackMessage) => {
     const code = err?.code || '';
@@ -332,7 +332,8 @@ export const getProfile = async (req, res) => {
         console.log('[getProfile] Fetching for user id:', req.user?.id);
         const result = await pool.query(
             `SELECT id, name, email, company_name, phone, plan, role, status, created_at, weekly_reports_enabled, onboarding_completed,
-                    trial_ends_at, stripe_subscription_id, stripe_customer_id
+                    trial_ends_at, stripe_subscription_id, stripe_customer_id,
+                    (password_hash IS NOT NULL AND length(password_hash) > 5) AS has_password
              FROM users
              WHERE id = $1`,
             [req.user.id]
@@ -433,8 +434,16 @@ export const updatePassword = async (req, res) => {
 
         // Fetch current password hash
         const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+        const currentHash = result.rows[0]?.password_hash;
 
-        const isMatch = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
+        if (!currentHash) {
+            return res.status(400).json({
+                success: false,
+                message: 'Your account is linked with Google OAuth. Local password change is not applicable.',
+            });
+        }
+
+        const isMatch = await bcrypt.compare(currentPassword, currentHash);
         if (!isMatch) {
             return res.status(401).json({ success: false, message: 'Incorrect current password.' });
         }
@@ -938,6 +947,13 @@ export const firebaseSessionLogin = async (req, res) => {
  */
 export const updatePlan = async (req, res) => {
     try {
+        if (req.user?.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Plan upgrades must be processed through Stripe Checkout.',
+            });
+        }
+
         const { plan } = req.body;
         const validPlans = ['free', 'Growth', 'Pro'];
         

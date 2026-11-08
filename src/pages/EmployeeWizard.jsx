@@ -340,9 +340,17 @@ const EmployeeWizard = () => {
     const [message, setMessage]               = useState('');
     const textareaRef                         = useRef(null);
     const followupRefs                        = useRef({});
+    const cursorPositionsRef                  = useRef({});
+
+    const updateCursorPos = (key, start, end) => {
+        cursorPositionsRef.current[key || 'main'] = { start, end };
+    };
 
     const insertVariable = (variable, stepId = null) => {
         const textarea = stepId ? followupRefs.current[stepId] : textareaRef.current;
+        const key = stepId || 'main';
+        const savedPos = cursorPositionsRef.current[key];
+
         if (!textarea) {
             if (!stepId) {
                 setMessage((m) => variable + m);
@@ -350,26 +358,44 @@ const EmployeeWizard = () => {
             return;
         }
 
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
+        const currentVal = stepId
+            ? (followupSteps.find((s) => s.id === stepId)?.text || '')
+            : (message || textarea.value || '');
+
+        let start = (savedPos && typeof savedPos.start === 'number')
+            ? savedPos.start
+            : (typeof textarea.selectionStart === 'number' ? textarea.selectionStart : currentVal.length);
+        let end = (savedPos && typeof savedPos.end === 'number')
+            ? savedPos.end
+            : (typeof textarea.selectionEnd === 'number' ? textarea.selectionEnd : start);
+
+        if (start < 0 || start > currentVal.length) start = currentVal.length;
+        if (end < start || end > currentVal.length) end = start;
+
+        const before = currentVal.substring(0, start);
+        const after = currentVal.substring(end);
+        const newMessage = before + variable + after;
+        const newPos = start + variable.length;
+
+        cursorPositionsRef.current[key] = { start: newPos, end: newPos };
 
         if (stepId) {
-            const step = followupSteps.find((s) => s.id === stepId);
-            const text = step ? (step.text || '') : '';
-            const before = text.substring(0, start);
-            const after = text.substring(end);
-            const newMessage = before + variable + after;
             handleFollowupMessageChange(stepId, newMessage);
         } else {
-            const before = message.substring(0, start);
-            const after = message.substring(end);
-            setMessage(before + variable + after);
+            setMessage(newMessage);
         }
 
-        setTimeout(() => {
-            textarea.focus();
-            textarea.setSelectionRange(start + variable.length, start + variable.length);
-        }, 0);
+        // Apply immediately to DOM and set selection range
+        textarea.value = newMessage;
+        textarea.focus();
+        textarea.setSelectionRange(newPos, newPos);
+
+        requestAnimationFrame(() => {
+            if (textarea) {
+                textarea.focus();
+                textarea.setSelectionRange(newPos, newPos);
+            }
+        });
     };
 
     const [questions, setQuestions]           = useState(['', '']);
@@ -1001,7 +1027,19 @@ const EmployeeWizard = () => {
                     <div className="wiz-message-box-header">
                         <div className="wiz-variable-pills">
                             {['{name}', '{link}', '{number}'].map(v => (
-                                <button key={v} type="button" onClick={() => insertVariable(v)} className="wiz-pill">
+                                <button
+                                    key={v}
+                                    type="button"
+                                    onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        insertVariable(v);
+                                    }}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        insertVariable(v);
+                                    }}
+                                    className="wiz-pill"
+                                >
                                     {v.toUpperCase()}
                                 </button>
                             ))}
@@ -1013,6 +1051,9 @@ const EmployeeWizard = () => {
                         className="wiz-message-textarea"
                         value={message}
                         onChange={e => setMessage(e.target.value)}
+                        onSelect={e => updateCursorPos('main', e.target.selectionStart, e.target.selectionEnd)}
+                        onClick={e => updateCursorPos('main', e.target.selectionStart, e.target.selectionEnd)}
+                        onKeyUp={e => updateCursorPos('main', e.target.selectionStart, e.target.selectionEnd)}
                         placeholder={t('wizMsgWritePlaceholder')}
                     />
                 </div>
@@ -1160,10 +1201,11 @@ const EmployeeWizard = () => {
                             }}
                             messageVariables={[
                                 { label: 'Name', key: '{NAME}' },
-                                { label: 'Company', key: '{COMPANY}' },
+                                { label: 'Your Business Name', key: '{COMPANY}' },
                                 { label: 'Link', key: '{LINK}' },
                             ]}
                             onInsertVariable={(stepId, key) => insertVariable(key, stepId)}
+                            onCursorChange={(stepId, start, end) => updateCursorPos(stepId, start, end)}
                         />
                     </div>
                     <WizFooter
